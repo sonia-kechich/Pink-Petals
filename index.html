@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#fdf6f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#241a22" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Pink Petals — a calm, minimal productivity app: simple tasks, a daily focus, habits, notes, and a quiet focus timer." />
+
+    <!-- Apple PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Pink Petals" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Quicksand:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>Pink Petals</title>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Static splash shown before the bundle hydrates -->
+      <div id="boot-splash">
+        <div class="boot-flower">🌸</div>
+        <div class="boot-title">Pink Petals</div>
+        <div class="boot-sub">A calm place to bloom.</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
