@@ -8,7 +8,10 @@ import {
   isSameDay,
   parseISO,
   differenceInCalendarDays,
+  addDays,
+  addMonths,
 } from "date-fns";
+import type { RepeatRule } from "../types";
 
 export const todayKey = (): string => format(new Date(), "yyyy-MM-dd");
 
@@ -20,7 +23,40 @@ export const prettyDate = (key: string): string =>
 export const shortDate = (key: string): string =>
   format(parseISO(key), "MMM d, yyyy");
 
-/** Full calendar grid (weeks padded) for a given month. */
+export function dueLabel(key: string): string {
+  const diff = differenceInCalendarDays(parseISO(key), new Date());
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  if (diff > 1 && diff < 7) return format(parseISO(key), "EEEE");
+  return format(parseISO(key), "MMM d");
+}
+
+export function isOverdue(key: string): boolean {
+  return differenceInCalendarDays(parseISO(key), new Date()) < 0;
+}
+
+export function nextOccurrence(fromKey: string, repeat: RepeatRule): string {
+  const from = parseISO(fromKey);
+  switch (repeat.freq) {
+    case "daily":
+      return toKey(addDays(from, 1));
+    case "monthly":
+      return toKey(addMonths(from, 1));
+    case "weekly": {
+      const days = repeat.weekdays?.length ? [...repeat.weekdays].sort() : null;
+      if (!days) return toKey(addDays(from, 7));
+      for (let i = 1; i <= 7; i++) {
+        const cand = addDays(from, i);
+        if (days.includes(cand.getDay())) return toKey(cand);
+      }
+      return toKey(addDays(from, 7));
+    }
+    default:
+      return fromKey;
+  }
+}
+
 export function monthGrid(year: number, month: number): Date[] {
   const first = startOfMonth(new Date(year, month, 1));
   const last = endOfMonth(first);
@@ -37,11 +73,9 @@ export function daysInMonthKeys(year: number, month: number): string[] {
 
 export { isSameDay, parseISO, differenceInCalendarDays, format };
 
-/** Compute the longest current consecutive-day streak from a log map. */
 export function currentStreak(log: Record<string, boolean>): number {
   let streak = 0;
   const cursor = new Date();
-  // Allow today to be incomplete without breaking the streak.
   if (!log[toKey(cursor)]) {
     cursor.setDate(cursor.getDate() - 1);
   }

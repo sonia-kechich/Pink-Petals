@@ -2,10 +2,6 @@ import { useMemo } from "react";
 
 const PETALS = ["🌸", "🌷", "❀", "✿"];
 
-/**
- * A few soft petals drifting in the background. Deliberately sparse and faint —
- * decoration, never distraction. Hidden when the user prefers reduced motion.
- */
 export function FloatingPetals({ count = 7 }: { count?: number }) {
   const petals = useMemo(
     () =>

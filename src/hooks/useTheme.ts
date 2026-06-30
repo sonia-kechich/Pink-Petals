@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useStore } from "../store/useStore";
 
-/** Applies the chosen theme to <html> and reacts to system changes. */
 export function useTheme() {
   const theme = useStore((s) => s.settings.theme);
 

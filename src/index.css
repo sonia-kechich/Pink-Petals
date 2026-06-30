@@ -17,6 +17,7 @@
     --gold: #c79a4f; /* soft gold */
     --on-accent: #fffafc;
     --ring: rgba(196, 109, 146, 0.28);
+    --danger: #b08a86; /* muted rose for overdue / destructive accents */
   }
 
   .dark {
@@ -184,6 +185,45 @@
     background-clip: text;
     color: transparent;
     animation: theme("animation.shimmer");
+  }
+
+  /* Delicate rose volume slider, themed for light + dark. */
+  .petal-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 99px;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0%,
+      var(--accent) var(--fill, 50%),
+      var(--surface-2) var(--fill, 50%),
+      var(--surface-2) 100%
+    );
+    outline: none;
+    cursor: pointer;
+  }
+  .petal-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: var(--on-accent);
+    border: 2px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: transform 0.15s ease;
+  }
+  .petal-range::-webkit-slider-thumb:active {
+    transform: scale(1.15);
+  }
+  .petal-range::-moz-range-thumb {
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: var(--on-accent);
+    border: 2px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   }
 
   .safe-bottom {

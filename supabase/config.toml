@@ -1,0 +1,41 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Supabase config-as-code (Supabase CLI).                                   ║
+# ║                                                                            ║
+# ║  This pins the AUTH settings we care about in version control so they      ║
+# ║  can't silently drift. It is applied with the Supabase CLI:                ║
+# ║      supabase link --project-ref <ref>                                     ║
+# ║      supabase config push        # pushes [auth] settings to the project   ║
+# ║                                                                            ║
+# ║  IMPORTANT: For a HOSTED project, the dashboard is still the source of     ║
+# ║  truth unless you actively run `supabase config push`. The corresponding   ║
+# ║  dashboard steps are listed in docs/SECURITY_AND_OPS.md → MANUAL ACTIONS.  ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+project_id = "pink-petals-planner"
+
+[auth]
+# Require a verified email before an account is usable. With this ON, sign-up
+# returns no session until the emailed code/link is confirmed (the app already
+# handles `pendingVerification` → the "Check your email" screen).
+enable_confirmations = true
+# Don't allow changing email without re-confirming the new address.
+enable_signup = true
+
+[auth.email]
+# Built-in mailer is heavily rate-limited and unsuitable for production. Point
+# this at real SMTP credentials (see [auth.email.smtp]) before enabling
+# confirmations broadly, or verification emails will fail to deliver.
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+# ── Custom SMTP ──────────────────────────────────────────────────────────────
+# Fill these from your transactional email provider, then `supabase config push`.
+# Secrets (password) should come from `supabase secrets`, NOT be committed here.
+# [auth.email.smtp]
+# host = "smtp.your-provider.com"
+# port = 587
+# user = "apikey-or-username"
+# pass = "env(SMTP_PASSWORD)"   # set via: supabase secrets set SMTP_PASSWORD=...
+# admin_email = "no-reply@your-domain.com"
+# sender_name = "Pink Petals"
