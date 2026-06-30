@@ -425,6 +425,8 @@ class AmbientEngine {
   private master: GainNode | null = null;
   private current: Voice | null = null;
   private volume = 0.6;
+  private keepAliveId: number | null = null;
+  private wired = false;
 
   get active(): boolean {
     return !!this.ctx && this.ctx.state === "running" && !!this.current;
@@ -439,13 +441,56 @@ class AmbientEngine {
     master.connect(ctx.destination);
     this.ctx = ctx;
     this.master = master;
+
+    // Survive OS/WebView audio interruptions (screen lock, app backgrounding,
+    // phone call, returning to the tab). Mobile browsers suspend the
+    // AudioContext shortly after the start gesture or when focus is lost — which
+    // is why playback used to die after ~1s on a phone. We re-resume on any
+    // state change and when the app becomes visible again, as long as a sound
+    // is meant to be playing.
+    if (!this.wired) {
+      this.wired = true;
+      ctx.onstatechange = () => {
+        if (this.current && ctx.state !== "running" && ctx.state !== "closed") {
+          void ctx.resume().catch(() => {});
+        }
+      };
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", () => {
+          if (this.current && document.visibilityState === "visible") {
+            void this.ctx?.resume().catch(() => {});
+          }
+        });
+      }
+    }
     return ctx;
   }
 
+  /** Resume (and lazily create) the audio context. Call this from a real user
+   *  gesture so mobile autoplay policy lets the context start. */
   async unlock(): Promise<void> {
-    const ctx = this.ctx;
-    if (ctx && ctx.state === "suspended") {
+    const ctx = this.ensure();
+    if (ctx.state !== "running") {
       try { await ctx.resume(); } catch {}
+    }
+  }
+
+  // Backstop for the statechange/visibility handlers: while a sound is active,
+  // poll a couple of times a second and re-resume if the context fell asleep.
+  private startKeepAlive(): void {
+    if (this.keepAliveId != null) return;
+    this.keepAliveId = window.setInterval(() => {
+      const ctx = this.ctx;
+      if (ctx && this.current && ctx.state !== "running" && ctx.state !== "closed") {
+        void ctx.resume().catch(() => {});
+      }
+    }, 1500);
+  }
+
+  private stopKeepAlive(): void {
+    if (this.keepAliveId != null) {
+      window.clearInterval(this.keepAliveId);
+      this.keepAliveId = null;
     }
   }
 
@@ -475,6 +520,7 @@ class AmbientEngine {
 
     const previous = this.current;
     this.current = { id, gain, stop };
+    this.startKeepAlive();
     if (previous) this.fadeOut(previous, FADE);
   }
 
@@ -483,6 +529,7 @@ class AmbientEngine {
       this.fadeOut(this.current, fade);
       this.current = null;
     }
+    this.stopKeepAlive();
   }
 
   private fadeOut(voice: Voice, fade: number): void {
