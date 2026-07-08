@@ -1,14 +1,15 @@
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "dark" | "system";
+export type AccentColor = "pink" | "blue" | "green" | "gray";
 
 export interface Task {
   id: string;
   title: string;
   done: boolean;
-  /** Marked as one of today's (max 3) focus tasks. */
-  focused: boolean;
   createdAt: number;
   completedAt?: number;
   order: number;
+  /** yyyy-MM-dd — the date this task belongs to (defaults to today) */
+  dateKey: string;
 }
 
 export interface Habit {
@@ -32,14 +33,34 @@ export interface FocusSession {
   startedAt: number;
   minutes: number;
   mode: "focus" | "break";
+  taskId?: string;
 }
 
 export interface Settings {
   theme: ThemeMode;
+  accentColor: AccentColor;
   userName: string;
   pomodoroFocus: number;
   pomodoroBreak: number;
   soundOnComplete: boolean;
+  notifyOnComplete: boolean;
+  showCalendar: boolean;
+}
+
+export interface SoundSettings {
+  selectedId: string | null;
+  playing: boolean;
+  volume: number;
+  favorites: string[];
+}
+
+export interface SyncData {
+  tasks: Task[];
+  habits: Habit[];
+  notes: Note[];
+  sessions: FocusSession[];
+  settings: Settings;
+  sound: SoundSettings;
 }
 
 export interface AppState {
@@ -48,7 +69,7 @@ export interface AppState {
   notes: Note[];
   sessions: FocusSession[];
   settings: Settings;
+  sound: SoundSettings;
 }
 
-/** At most 3 tasks may be focused at once. */
-export const MAX_FOCUS = 3;
+

@@ -67,8 +67,8 @@ export default {
           "50%": { transform: "translateY(-6px) rotate(4deg)" },
         },
         shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
+          "0%": { "background-position": "-200% 0" },
+          "100%": { "background-position": "200% 0" },
         },
       },
       animation: {

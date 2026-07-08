@@ -19,6 +19,6 @@
     <g transform="translate(32 32)">
       <path d="M0 -1.28C 9.68 -1.98, 8.60 -14.28, 2.96 -18.85C 1.34 -20.24, -1.34 -20.24, -2.96 -18.85C -8.60 -14.28, -9.68 -1.98, 0 -1.28 Z" transform="rotate(0)" fill="url(#petalGrad)" stroke="#c46d92" stroke-width="0.544" stroke-linejoin="round"/><path d="M0 -1.28C 9.68 -1.98, 8.60 -14.28, 2.96 -18.85C 1.34 -20.24, -1.34 -20.24, -2.96 -18.85C -8.60 -14.28, -9.68 -1.98, 0 -1.28 Z" transform="rotate(72)" fill="url(#petalGrad)" stroke="#c46d92" stroke-width="0.544" stroke-linejoin="round"/><path d="M0 -1.28C 9.68 -1.98, 8.60 -14.28, 2.96 -18.85C 1.34 -20.24, -1.34 -20.24, -2.96 -18.85C -8.60 -14.28, -9.68 -1.98, 0 -1.28 Z" transform="rotate(144)" fill="url(#petalGrad)" stroke="#c46d92" stroke-width="0.544" stroke-linejoin="round"/><path d="M0 -1.28C 9.68 -1.98, 8.60 -14.28, 2.96 -18.85C 1.34 -20.24, -1.34 -20.24, -2.96 -18.85C -8.60 -14.28, -9.68 -1.98, 0 -1.28 Z" transform="rotate(216)" fill="url(#petalGrad)" stroke="#c46d92" stroke-width="0.544" stroke-linejoin="round"/><path d="M0 -1.28C 9.68 -1.98, 8.60 -14.28, 2.96 -18.85C 1.34 -20.24, -1.34 -20.24, -2.96 -18.85C -8.60 -14.28, -9.68 -1.98, 0 -1.28 Z" transform="rotate(288)" fill="url(#petalGrad)" stroke="#c46d92" stroke-width="0.544" stroke-linejoin="round"/>
       <circle r="4.48" fill="url(#centerGrad)"/>
-      <circle r="1.792" fill="#f6efe3"/>
+      <circle r="1.792" fill="#f7e7c2"/>
     </g>
   </svg>

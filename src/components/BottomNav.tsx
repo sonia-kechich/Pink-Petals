@@ -1,15 +1,19 @@
 import { NavLink } from "react-router-dom";
-import { Sun, ListChecks, CalendarCheck, NotebookPen, Timer } from "lucide-react";
+import { Sun, ListChecks, CalendarCheck, CalendarDays, NotebookPen, Timer } from "lucide-react";
+import { useStore } from "../store/useStore";
 
-const ITEMS = [
+const BASE_ITEMS = [
   { to: "/", label: "Today", icon: Sun },
   { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/habits", label: "Habits", icon: CalendarCheck },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/notes", label: "Notes", icon: NotebookPen },
   { to: "/timer", label: "Timer", icon: Timer },
 ];
 
 export function BottomNav() {
+  const showCalendar = useStore((s) => s.settings.showCalendar);
+  const ITEMS = BASE_ITEMS.filter((item) => item.to !== "/calendar" || showCalendar);
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t px-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.4rem)] pt-2 backdrop-blur-xl"

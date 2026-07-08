@@ -2,11 +2,13 @@ import { Outlet, useLocation } from "react-router-dom";
 import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { FloatingPetals } from "./FloatingPetals";
+import { AmbientController } from "./AmbientController";
 
 export function Layout() {
   const { pathname } = useLocation();
   return (
     <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-4">
+      <AmbientController />
       <FloatingPetals count={7} />
       <TopBar />
       <main className="safe-bottom relative z-10 flex-1 pt-2">

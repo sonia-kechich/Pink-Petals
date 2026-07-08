@@ -4,22 +4,6 @@
 
 @layer base {
   :root {
-    color-scheme: light;
-    /* Warm, feminine surfaces — translucent for soft glassmorphism. */
-    --surface: rgba(255, 250, 252, 0.62);
-    --surface-2: rgba(244, 228, 236, 0.66);
-    --glass-border: rgba(255, 255, 255, 0.72);
-    --border: rgba(120, 80, 105, 0.1);
-    --text: #5a4350; /* deep plum-mauve, warm and readable */
-    --text-muted: #9a8290;
-    --accent: #c46d92; /* dusty rose */
-    --accent-2: #a288c6; /* lavender */
-    --gold: #c79a4f; /* soft gold */
-    --on-accent: #fffafc;
-    --ring: rgba(196, 109, 146, 0.28);
-  }
-
-  .dark {
     color-scheme: dark;
     /* Deep warm plum — never corporate black. */
     --surface: rgba(64, 46, 60, 0.5);
@@ -28,11 +12,32 @@
     --border: rgba(255, 255, 255, 0.09);
     --text: #f3e7ee;
     --text-muted: #cbb0c0;
-    --accent: #cd7ba2; /* mid rose, keeps white legible */
-    --accent-2: #b69ce0;
     --gold: #e3c483;
     --on-accent: #fffafc;
+  }
+
+  [data-accent="pink"] {
+    --accent: #cd7ba2;
+    --accent-2: #b69ce0;
     --ring: rgba(205, 123, 162, 0.32);
+  }
+
+  [data-accent="blue"] {
+    --accent: #6da9d4;
+    --accent-2: #8ab8e0;
+    --ring: rgba(109, 169, 212, 0.32);
+  }
+
+  [data-accent="green"] {
+    --accent: #7bb88a;
+    --accent-2: #9ed1a8;
+    --ring: rgba(123, 184, 138, 0.32);
+  }
+
+  [data-accent="gray"] {
+    --accent: #9a8a9a;
+    --accent-2: #b8a8b8;
+    --ring: rgba(154, 138, 154, 0.32);
   }
 
   * {
@@ -50,20 +55,13 @@
     font-family: theme("fontFamily.sans");
     color: var(--text);
     background:
-      radial-gradient(900px 520px at 84% -8%, rgba(214, 160, 196, 0.34), transparent 60%),
-      radial-gradient(820px 480px at -12% 108%, rgba(214, 184, 140, 0.2), transparent 56%),
-      linear-gradient(165deg, #fdf6f2, #f9e7ee 46%, #efe7f6);
+      radial-gradient(900px 520px at 84% -8%, rgba(180, 120, 160, 0.24), transparent 60%),
+      radial-gradient(820px 480px at -12% 108%, rgba(150, 110, 140, 0.18), transparent 56%),
+      linear-gradient(165deg, #241a22, #2a1f2b 50%, #221d2c);
     background-attachment: fixed;
     overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-  }
-
-  .dark body {
-    background:
-      radial-gradient(900px 520px at 84% -8%, rgba(180, 120, 160, 0.24), transparent 60%),
-      radial-gradient(820px 480px at -12% 108%, rgba(150, 110, 140, 0.18), transparent 56%),
-      linear-gradient(165deg, #241a22, #2a1f2b 50%, #221d2c);
   }
 
   /* Respect reduced-motion everywhere. */
@@ -85,7 +83,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    background: linear-gradient(165deg, #fdf6f2, #f9e7ee 46%, #efe7f6);
+    background: linear-gradient(165deg, #241a22, #2a1f2b 50%, #221d2c);
     z-index: 9999;
   }
   #boot-splash .boot-flower {
@@ -96,10 +94,10 @@
     font-family: "Cormorant Garamond", Georgia, serif;
     font-size: 1.7rem;
     font-weight: 600;
-    color: #a8567a;
+    color: #cd7ba2;
   }
   #boot-splash .boot-sub {
-    color: #9a8290;
+    color: #cbb0c0;
     font-size: 0.9rem;
   }
   @keyframes boot-bounce {
@@ -112,7 +110,7 @@
     height: 8px;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(196, 109, 146, 0.35);
+    background: rgba(205, 123, 162, 0.35);
     border-radius: 99px;
   }
 }
@@ -138,7 +136,7 @@
     color: var(--text-muted);
   }
 
-  /* Primary action — rose→lavender gradient with a gentle glow. */
+  /* Primary action — accent gradient with a gentle glow. */
   .btn {
     @apply inline-flex select-none items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold transition-all duration-200 active:scale-[0.98];
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -177,8 +175,30 @@
   }
 
   /* A delicate gold-rose shimmer for special headings. */
+  /* Custom range slider for sound volume. */
+  .petal-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 99px;
+    outline: none;
+    background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--surface-2) var(--fill, 0%));
+    cursor: pointer;
+  }
+  .petal-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--on-accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    cursor: pointer;
+  }
+
   .shimmer-gold {
-    background: linear-gradient(90deg, #c46d92, #d9b46b, #a288c6, #c46d92);
+    background: linear-gradient(90deg, #cd7ba2, #e3c483, #b69ce0, #cd7ba2);
     background-size: 200% auto;
     -webkit-background-clip: text;
     background-clip: text;

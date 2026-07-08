@@ -1,43 +1,71 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   AppState,
+  SyncData,
   Task,
   Habit,
   Note,
   FocusSession,
   Settings,
+  SoundSettings,
 } from "../types";
-import { MAX_FOCUS } from "../types";
 import { uid } from "../lib/utils";
+import { todayKey, format } from "../lib/date";
 
 interface Actions {
   // Tasks
-  addTask: (title: string) => void;
+  addTask: (title: string, dateKey?: string) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
   renameTask: (id: string, title: string) => void;
-  toggleFocus: (id: string) => void;
+  updateTask: (id: string, patch: Partial<Pick<Task, "title" | "dateKey">>) => void;
   clearCompleted: () => void;
+  moveTaskToTop: (id: string) => void;
+  moveTaskToBottom: (id: string) => void;
+  moveTask: (id: string, toIndex: number) => void;
 
   // Habits
   addHabit: (name: string) => void;
+  renameHabit: (id: string, name: string) => void;
   toggleHabitDay: (id: string, dateKey: string) => void;
   deleteHabit: (id: string) => void;
+  moveHabitToTop: (id: string) => void;
+  moveHabitToBottom: (id: string) => void;
 
   // Notes
   addNote: () => string;
   updateNote: (id: string, patch: Partial<Pick<Note, "title" | "body">>) => void;
   deleteNote: (id: string) => void;
+  moveNoteToTop: (id: string) => void;
+  moveNoteToBottom: (id: string) => void;
 
   // Focus timer
-  addSession: (minutes: number, mode: "focus" | "break") => void;
+  addSession: (minutes: number, mode: "focus" | "break", taskId?: string) => void;
 
   // Settings
   updateSettings: (patch: Partial<Settings>) => void;
 
+  // Sound
+  selectSound: (id: string) => void;
+  toggleSoundPlaying: () => void;
+  setSoundVolume: (volume: number) => void;
+  toggleFavoriteSound: (id: string) => void;
+  stopSound: () => void;
+
+  // Sync
+  exportSyncData: () => SyncData;
+  applySyncData: (data: Partial<SyncData>) => void;
+
   resetAll: () => void;
 }
+
+const defaultSound: SoundSettings = {
+  selectedId: null,
+  playing: false,
+  volume: 0.6,
+  favorites: [],
+};
 
 const initialState: AppState = {
   tasks: [],
@@ -45,21 +73,25 @@ const initialState: AppState = {
   notes: [],
   sessions: [],
   settings: {
-    theme: "system",
+    theme: "dark",
+    accentColor: "pink",
     userName: "",
     pomodoroFocus: 25,
     pomodoroBreak: 5,
     soundOnComplete: true,
+    notifyOnComplete: false,
+    showCalendar: true,
   },
+  sound: { ...defaultSound },
 };
 
 export const useStore = create<AppState & Actions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialState,
 
       // ---- Tasks -----------------------------------------------------
-      addTask: (title) =>
+      addTask: (title, dateKey) =>
         set((s) => {
           const t = title.trim();
           if (!t) return {};
@@ -67,9 +99,9 @@ export const useStore = create<AppState & Actions>()(
             id: uid(),
             title: t,
             done: false,
-            focused: false,
             createdAt: Date.now(),
             order: s.tasks.length,
+            dateKey: dateKey || todayKey(),
           };
           return { tasks: [task, ...s.tasks] };
         }),
@@ -97,20 +129,46 @@ export const useStore = create<AppState & Actions>()(
           ),
         })),
 
-      toggleFocus: (id) =>
-        set((s) => {
-          const focusedCount = s.tasks.filter((t) => t.focused && !t.done).length;
-          return {
-            tasks: s.tasks.map((t) => {
-              if (t.id !== id) return t;
-              if (!t.focused && focusedCount >= MAX_FOCUS) return t; // gently cap
-              return { ...t, focused: !t.focused };
-            }),
-          };
-        }),
+      updateTask: (id, patch) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id ? { ...t, ...patch } : t
+          ),
+        })),
 
       clearCompleted: () =>
         set((s) => ({ tasks: s.tasks.filter((t) => !t.done) })),
+
+      moveTaskToTop: (id) =>
+        set((s) => {
+          const idx = s.tasks.findIndex((t) => t.id === id);
+          if (idx < 1) return {};
+          const tasks = [...s.tasks];
+          const [item] = tasks.splice(idx, 1);
+          tasks.unshift(item);
+          return { tasks };
+        }),
+
+      moveTaskToBottom: (id) =>
+        set((s) => {
+          const idx = s.tasks.findIndex((t) => t.id === id);
+          if (idx < 0 || idx === s.tasks.length - 1) return {};
+          const tasks = [...s.tasks];
+          const [item] = tasks.splice(idx, 1);
+          tasks.push(item);
+          return { tasks };
+        }),
+
+      moveTask: (id, toIndex) =>
+        set((s) => {
+          const tasks = [...s.tasks];
+          const fromIndex = tasks.findIndex((t) => t.id === id);
+          if (fromIndex < 0) return {};
+          const [item] = tasks.splice(fromIndex, 1);
+          const clamped = Math.max(0, Math.min(toIndex, tasks.length));
+          tasks.splice(clamped, 0, item);
+          return { tasks };
+        }),
 
       // ---- Habits ----------------------------------------------------
       addHabit: (name) =>
@@ -126,6 +184,13 @@ export const useStore = create<AppState & Actions>()(
           return { habits: [...s.habits, habit] };
         }),
 
+      renameHabit: (id, name) =>
+        set((s) => ({
+          habits: s.habits.map((h) =>
+            h.id === id ? { ...h, name: name.trim() || h.name } : h
+          ),
+        })),
+
       toggleHabitDay: (id, dateKey) =>
         set((s) => ({
           habits: s.habits.map((h) => {
@@ -139,6 +204,26 @@ export const useStore = create<AppState & Actions>()(
 
       deleteHabit: (id) =>
         set((s) => ({ habits: s.habits.filter((h) => h.id !== id) })),
+
+      moveHabitToTop: (id) =>
+        set((s) => {
+          const idx = s.habits.findIndex((h) => h.id === id);
+          if (idx < 1) return {};
+          const habits = [...s.habits];
+          const [item] = habits.splice(idx, 1);
+          habits.unshift(item);
+          return { habits };
+        }),
+
+      moveHabitToBottom: (id) =>
+        set((s) => {
+          const idx = s.habits.findIndex((h) => h.id === id);
+          if (idx < 0 || idx === s.habits.length - 1) return {};
+          const habits = [...s.habits];
+          const [item] = habits.splice(idx, 1);
+          habits.push(item);
+          return { habits };
+        }),
 
       // ---- Notes -----------------------------------------------------
       addNote: () => {
@@ -163,14 +248,35 @@ export const useStore = create<AppState & Actions>()(
       deleteNote: (id) =>
         set((s) => ({ notes: s.notes.filter((n) => n.id !== id) })),
 
+      moveNoteToTop: (id) =>
+        set((s) => {
+          const idx = s.notes.findIndex((n) => n.id === id);
+          if (idx < 1) return {};
+          const notes = [...s.notes];
+          const [item] = notes.splice(idx, 1);
+          notes.unshift(item);
+          return { notes };
+        }),
+
+      moveNoteToBottom: (id) =>
+        set((s) => {
+          const idx = s.notes.findIndex((n) => n.id === id);
+          if (idx < 0 || idx === s.notes.length - 1) return {};
+          const notes = [...s.notes];
+          const [item] = notes.splice(idx, 1);
+          notes.push(item);
+          return { notes };
+        }),
+
       // ---- Focus -----------------------------------------------------
-      addSession: (minutes, mode) =>
+      addSession: (minutes, mode, taskId) =>
         set((s) => {
           const session: FocusSession = {
             id: uid(),
             startedAt: Date.now(),
             minutes,
             mode,
+            taskId,
           };
           return { sessions: [session, ...s.sessions].slice(0, 200) };
         }),
@@ -179,11 +285,89 @@ export const useStore = create<AppState & Actions>()(
       updateSettings: (patch) =>
         set((s) => ({ settings: { ...s.settings, ...patch } })),
 
-      resetAll: () => set({ ...initialState }),
+      // ---- Sound -----------------------------------------------------
+      selectSound: (id) =>
+        set((s) => ({
+          sound: { ...s.sound, selectedId: id, playing: true },
+        })),
+
+      toggleSoundPlaying: () =>
+        set((s) => ({
+          sound: { ...s.sound, playing: !s.sound.playing },
+        })),
+
+      setSoundVolume: (volume) =>
+        set((s) => ({
+          sound: { ...s.sound, volume: Math.max(0, Math.min(1, volume)) },
+        })),
+
+      toggleFavoriteSound: (id) =>
+        set((s) => {
+          const favs = s.sound.favorites;
+          const next = favs.includes(id)
+            ? favs.filter((f) => f !== id)
+            : [...favs, id];
+          return { sound: { ...s.sound, favorites: next } };
+        }),
+
+      stopSound: () =>
+        set((s) => ({
+          sound: { ...s.sound, playing: false },
+        })),
+
+      // ---- Sync ------------------------------------------------------
+      exportSyncData: () => {
+        const s = get();
+        return {
+          tasks: s.tasks,
+          habits: s.habits,
+          notes: s.notes,
+          sessions: s.sessions,
+          settings: s.settings,
+          sound: s.sound,
+        };
+      },
+
+      applySyncData: (data) =>
+        set((s) => ({
+          tasks: data.tasks ?? s.tasks,
+          habits: data.habits ?? s.habits,
+          notes: data.notes ?? s.notes,
+          sessions: data.sessions ?? s.sessions,
+          settings: data.settings ?? s.settings,
+          sound: data.sound ?? s.sound,
+        })),
+
+      resetAll: () => {
+        try { localStorage.removeItem("calm-planner-v1"); } catch {}
+        set({ ...initialState });
+      },
     }),
     {
       name: "calm-planner-v1",
-      version: 1,
+      version: 2,
+      migrate: (persisted: any) => {
+        if (!persisted || !persisted.tasks) return persisted;
+        const tasks = persisted.tasks.map((t: any) => ({
+          ...t,
+          dateKey: t.dateKey || (t.createdAt ? format(t.createdAt, "yyyy-MM-dd") : todayKey()),
+        }));
+        return { ...persisted, tasks };
+      },
+      storage: createJSONStorage(() => {
+        try {
+          const test = "__storage_test__";
+          localStorage.setItem(test, test);
+          localStorage.removeItem(test);
+          return localStorage;
+        } catch {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+      }),
     }
   )
 );

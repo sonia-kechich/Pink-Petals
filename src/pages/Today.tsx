@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Check } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { Card, EmptyState } from "../components/Card";
 import { Checkbox } from "../components/Checkbox";
 import { Celebration } from "../components/Celebration";
 import { greeting, quoteOfDay } from "../lib/content";
@@ -10,24 +10,57 @@ import { todayKey, toKey } from "../lib/date";
 export default function Today() {
   const tasks = useStore((s) => s.tasks);
   const habits = useStore((s) => s.habits);
+  const notes = useStore((s) => s.notes);
   const sessions = useStore((s) => s.sessions);
   const toggleTask = useStore((s) => s.toggleTask);
+  const toggleHabitDay = useStore((s) => s.toggleHabitDay);
   const name = useStore((s) => s.settings.userName);
   const [celebrate, setCelebrate] = useState(0);
 
   const key = todayKey();
-  const focus = useMemo(
-    () => tasks.filter((t) => t.focused).sort((a, b) => Number(a.done) - Number(b.done)),
+
+  const activeTasks = useMemo(
+    () => tasks.filter((t) => !t.done),
     [tasks]
   );
 
-  const focusDone = focus.filter((t) => t.done).length;
   const habitsDone = habits.filter((h) => h.log[key]).length;
-  const focusMinutes = sessions
+  const focusMinutesToday = sessions
     .filter((s) => s.mode === "focus" && toKey(new Date(s.startedAt)) === key)
     .reduce((sum, s) => sum + s.minutes, 0);
+  const recentNotes = useMemo(
+    () => [...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3),
+    [notes]
+  );
 
   const hour = new Date().getHours();
+
+  const formatDay = (d: Date) => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days[d.getDay()];
+  };
+
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, []);
+
+  const dayMinutes = useMemo(() => {
+    return weekDays.map((d) => {
+      const k = toKey(d);
+      return sessions
+        .filter((s) => s.mode === "focus" && toKey(new Date(s.startedAt)) === k)
+        .reduce((sum, s) => sum + s.minutes, 0);
+    });
+  }, [sessions, weekDays]);
+
+  const maxDayMinutes = Math.max(...dayMinutes, 1);
 
   return (
     <div>
@@ -40,24 +73,76 @@ export default function Today() {
         <p className="muted mt-1 text-sm">{quoteOfDay(key)}</p>
       </header>
 
+      {/* ---- Stats row ---- */}
+      <div className="mb-6 grid grid-cols-3 gap-2">
+        <StatCard label="Tasks" value={`${activeTasks.length}`} sub="active" />
+        <StatCard label="Habits" value={`${habitsDone}/${habits.length}`} sub="done today" />
+        <StatCard label="Focus" value={`${focusMinutesToday}m`} sub="today" />
+      </div>
+
+      {/* ---- Weekly Progress ---- */}
       <section className="mb-6">
-        <h2 className="muted mb-2 px-1 text-xs font-semibold uppercase tracking-wide">
-          Today's focus
+        <h2 className="muted mb-3 px-1 text-xs font-semibold uppercase tracking-wide">
+          Weekly Progress
         </h2>
-        {focus.length === 0 ? (
-          <Card>
-            <EmptyState
-              title="Choose up to 3"
-              hint="Star a few tasks in your list to focus on them today."
-            />
-            <Link to="/tasks" className="btn mx-auto mt-1 flex w-max">
-              Go to tasks
+        <div
+          className="flex items-end justify-between gap-1.5 rounded-3xl px-4 py-5"
+          style={{ background: "var(--surface)" }}
+        >
+          {weekDays.map((d, i) => {
+            const minutes = dayMinutes[i];
+            const h = Math.max(Math.round((minutes / maxDayMinutes) * 80), 4);
+            const isToday = toKey(d) === key;
+            return (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+                <span
+                  className="text-[10px] font-semibold"
+                  style={{ color: isToday ? "var(--accent)" : "var(--text-muted)" }}
+                >
+                  {formatDay(d)}
+                </span>
+                <div
+                  className="w-full rounded-full transition-all"
+                  style={{
+                    height: h,
+                    background: isToday ? "var(--accent)" : "var(--surface-2)",
+                    minHeight: 4,
+                  }}
+                />
+                <span className="text-[10px] tabular-nums" style={{ color: "var(--text-muted)" }}>
+                  {minutes}m
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ---- Today's Tasks ---- */}
+      <section className="mb-6">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <h2 className="muted text-xs font-semibold uppercase tracking-wide">
+            Tasks ({activeTasks.length})
+          </h2>
+          {activeTasks.length > 3 && (
+            <Link
+              to="/tasks"
+              className="muted text-xs font-semibold transition-colors hover:opacity-70"
+              style={{ color: "var(--accent)" }}
+            >
+              View all
             </Link>
-          </Card>
+          )}
+        </div>
+        {activeTasks.length === 0 ? (
+          <div className="rounded-3xl p-6 text-center" style={{ background: "var(--surface)" }}>
+            <p className="muted text-sm">No tasks yet</p>
+            <Link to="/tasks" className="btn mx-auto mt-3 flex w-max">Add a task</Link>
+          </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {focus.map((t) => (
-              <Card key={t.id} className="flex items-center gap-3 !py-3.5">
+            {activeTasks.slice(0, 3).map((t) => (
+              <div key={t.id} className="flex items-center gap-3 px-1">
                 <Checkbox
                   checked={t.done}
                   onChange={() => {
@@ -65,48 +150,117 @@ export default function Today() {
                     toggleTask(t.id);
                   }}
                 />
-                <span
-                  className="flex-1 text-[15px]"
-                  style={{
-                    color: t.done ? "var(--text-muted)" : "var(--text)",
-                    textDecoration: t.done ? "line-through" : "none",
-                  }}
-                >
+                <span className="flex-1 text-[15px]" style={{ color: "var(--text)" }}>
                   {t.title}
                 </span>
-              </Card>
+              </div>
             ))}
           </div>
         )}
       </section>
 
-      <section>
+      {/* ---- Today's Habits ---- */}
+      <section className="mb-6">
         <h2 className="muted mb-2 px-1 text-xs font-semibold uppercase tracking-wide">
-          Gentle progress
+          Today's Habits
         </h2>
-        <div className="grid grid-cols-3 gap-2.5">
-          <Stat label="Focus" value={`${focusDone}/${focus.length || 0}`} ratio={focus.length ? focusDone / focus.length : 0} />
-          <Stat label="Habits" value={`${habitsDone}/${habits.length || 0}`} ratio={habits.length ? habitsDone / habits.length : 0} />
-          <Stat label="Minutes" value={`${focusMinutes}`} ratio={Math.min(focusMinutes / 60, 1)} />
-        </div>
+        {habits.length === 0 ? (
+          <div className="rounded-3xl p-6 text-center" style={{ background: "var(--surface)" }}>
+            <p className="muted text-sm">No habits yet</p>
+            <Link to="/habits" className="btn mx-auto mt-3 flex w-max">Add a habit</Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {habits.map((h) => {
+              const done = h.log[key];
+              return (
+                <div
+                  key={h.id}
+                  className="flex cursor-pointer items-center gap-3 px-1"
+                  onClick={() => toggleHabitDay(h.id, key)}
+                >
+                  <div
+                    className="flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors"
+                    style={{
+                      borderColor: done ? "var(--accent)" : "var(--border)",
+                      background: done ? "var(--accent)" : "transparent",
+                    }}
+                  >
+                    {done && <Check size={12} strokeWidth={3} style={{ color: "var(--on-accent)" }} />}
+                  </div>
+                  <span
+                    className="flex-1 text-[15px]"
+                    style={{
+                      color: "var(--text)",
+                      textDecoration: done ? "line-through" : "none",
+                    }}
+                  >
+                    {h.name}
+                  </span>
+                  <span className="muted text-xs">Today</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
+
+      {/* ---- Recent Notes ---- */}
+      {recentNotes.length > 0 && (
+        <section className="mb-6">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <h2 className="muted text-xs font-semibold uppercase tracking-wide">Recent Notes</h2>
+            <Link
+              to="/notes"
+              className="muted text-xs font-semibold transition-colors hover:opacity-70"
+              style={{ color: "var(--accent)" }}
+            >
+              View all
+            </Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {recentNotes.map((n) => (
+              <Link
+                key={n.id}
+                to={`/notes`}
+                className="rounded-2xl px-4 py-3 text-sm transition-colors hover:opacity-70"
+                style={{ background: "var(--surface)" }}
+              >
+                <span style={{ color: "var(--text)" }}>
+                  {n.title || "Untitled"}
+                </span>
+                <span className="muted ml-2 text-xs">
+                  {n.body
+                    ? n.body.length > 40
+                      ? n.body.slice(0, 40) + "…"
+                      : n.body
+                    : "Empty note"}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function Stat({ label, value, ratio }: { label: string; value: string; ratio: number }) {
+function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+}) {
   return (
-    <Card className="!p-3.5">
-      <p className="heading text-xl" style={{ color: "var(--text)" }}>
+    <div className="rounded-2xl p-3 text-center" style={{ background: "var(--surface)" }}>
+      <p className="muted text-[10px] font-semibold uppercase tracking-wide">{label}</p>
+      <p className="heading text-xl leading-tight" style={{ color: "var(--text)" }}>
         {value}
       </p>
-      <p className="muted mb-2 text-xs">{label}</p>
-      <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--surface-2)" }}>
-        <div
-          className="h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${Math.round(ratio * 100)}%`, background: "var(--accent)" }}
-        />
-      </div>
-    </Card>
+      <p className="muted mt-0.5 text-[10px]">{sub}</p>
+    </div>
   );
 }

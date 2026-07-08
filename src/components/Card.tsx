@@ -6,15 +6,18 @@ export function Card({
   children,
   className,
   onClick,
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
   onClick?: () => void;
+  [key: string]: any;
 }) {
   return (
     <div
       onClick={onClick}
       className={cn("card p-4", onClick && "cursor-pointer", className)}
+      {...rest}
     >
       {children}
     </div>

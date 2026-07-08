@@ -2,31 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { PageTitle } from "../components/Card";
+import { SoundPicker } from "../components/SoundPicker";
 import { formatClock } from "../lib/utils";
+import { ambient } from "../lib/ambient";
 
 type Mode = "focus" | "break";
 
-/** A soft, optional completion chime. Nothing jarring. */
-function chime() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 528;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.1);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 1.2);
-  } catch {
-    /* sound is optional */
-  }
-}
-
 export default function Timer() {
+  const tasks = useStore((s) => s.tasks);
   const focusMin = useStore((s) => s.settings.pomodoroFocus);
   const breakMin = useStore((s) => s.settings.pomodoroBreak);
   const soundOn = useStore((s) => s.settings.soundOnComplete);
@@ -37,6 +20,9 @@ export default function Timer() {
   const total = (mode === "focus" ? focusMin : breakMin) * 60;
   const [left, setLeft] = useState(total);
   const intervalRef = useRef<number | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("");
+
+  const activeTasks = tasks.filter((t) => !t.done);
 
   // Reset the clock whenever the mode or its duration changes while idle.
   useEffect(() => {
@@ -51,8 +37,8 @@ export default function Timer() {
         if (prev <= 1) {
           window.clearInterval(intervalRef.current!);
           setRunning(false);
-          addSession(mode === "focus" ? focusMin : breakMin, mode);
-          if (soundOn) chime();
+          addSession(mode === "focus" ? focusMin : breakMin, mode, selectedTaskId || undefined);
+          if (soundOn) ambient.chime();
           const next: Mode = mode === "focus" ? "break" : "focus";
           setMode(next);
           return (next === "focus" ? focusMin : breakMin) * 60;
@@ -63,7 +49,7 @@ export default function Timer() {
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
     };
-  }, [running, mode, focusMin, breakMin, soundOn, addSession]);
+  }, [running, mode, focusMin, breakMin, soundOn, addSession, selectedTaskId]);
 
   const progress = total > 0 ? 1 - left / total : 0;
   const size = 240;
@@ -93,6 +79,28 @@ export default function Timer() {
             {m}
           </button>
         ))}
+      </div>
+
+      {/* Task selector */}
+      <div className="mb-6 flex justify-center">
+        <select
+          value={selectedTaskId}
+          onChange={(e) => setSelectedTaskId(e.target.value)}
+          className="w-full max-w-xs rounded-xl px-4 py-2 text-sm font-medium"
+          style={{
+            background: "var(--surface-2)",
+            color: selectedTaskId ? "var(--text)" : "var(--text-muted)",
+            border: "none",
+            outline: "none",
+          }}
+        >
+          <option value="">Select a task to focus on...</option>
+          {activeTasks.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col items-center">
@@ -136,6 +144,8 @@ export default function Timer() {
             <RotateCcw size={18} />
           </button>
         </div>
+
+        <SoundPicker />
       </div>
     </div>
   );
