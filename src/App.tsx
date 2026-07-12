@@ -15,6 +15,7 @@ const Notes = lazy(() => import("./pages/Notes"));
 const Timer = lazy(() => import("./pages/Timer"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 function PageFallback() {
   return <div className="py-24" aria-hidden />;
@@ -23,23 +24,19 @@ function PageFallback() {
 export default function App() {
   useTheme();
 
-  // Initialize auth on mount
   useEffect(() => {
     useAuth.getState().init();
   }, []);
 
-  // Remove boot splash
   useEffect(() => {
     const splash = document.getElementById("boot-splash");
     if (splash) splash.remove();
   }, []);
 
-  // Cloud sync for signed-in users (no-op when supabase isn't configured)
   useCloudSync();
 
-  // Auth gating — only active when Supabase is configured
   const status = useAuth((s) => s.status);
-  const showCalendar = useStore((s) => s.settings.showCalendar);
+  const s = useStore((s) => s.settings);
 
   if (isSupabaseConfigured && status === "loading") {
     return <PageFallback />;
@@ -52,14 +49,15 @@ export default function App() {
       <Routes>
         <Route path="/auth" element={isAuthed ? <Navigate to="/" replace /> : <Auth />} />
         <Route element={isAuthed ? <Layout /> : <Navigate to="/auth" replace />}>
-          <Route index element={<Today />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="habits" element={<Habits />} />
-          <Route path="notes" element={<Notes />} />
-          <Route path="timer" element={<Timer />} />
-          {showCalendar && <Route path="calendar" element={<Calendar />} />}
+          {s.showDashboard && <Route index element={<Today />} />}
+          {s.showTasks && <Route path="tasks" element={<Tasks />} />}
+          {s.showHabits && <Route path="habits" element={<Habits />} />}
+          {s.showNotes && <Route path="notes" element={<Notes />} />}
+          {s.showTimer && <Route path="timer" element={<Timer />} />}
+          {s.showCalendar && <Route path="calendar" element={<Calendar />} />}
           <Route path="settings" element={<Settings />} />
-          <Route path="*" element={<Today />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="*" element={s.showDashboard ? <Today /> : <Navigate to="/settings" replace />} />
         </Route>
       </Routes>
     </Suspense>

@@ -1,6 +1,3 @@
-export type ThemeMode = "dark" | "system";
-export type AccentColor = "pink" | "blue" | "green" | "gray";
-
 export interface Task {
   id: string;
   title: string;
@@ -8,7 +5,6 @@ export interface Task {
   createdAt: number;
   completedAt?: number;
   order: number;
-  /** yyyy-MM-dd — the date this task belongs to (defaults to today) */
   dateKey: string;
 }
 
@@ -16,7 +12,6 @@ export interface Habit {
   id: string;
   name: string;
   createdAt: number;
-  /** dateKey (yyyy-MM-dd) -> completed */
   log: Record<string, boolean>;
 }
 
@@ -37,14 +32,17 @@ export interface FocusSession {
 }
 
 export interface Settings {
-  theme: ThemeMode;
-  accentColor: AccentColor;
   userName: string;
   pomodoroFocus: number;
   pomodoroBreak: number;
   soundOnComplete: boolean;
   notifyOnComplete: boolean;
+  showTasks: boolean;
+  showHabits: boolean;
+  showNotes: boolean;
   showCalendar: boolean;
+  showTimer: boolean;
+  showDashboard: boolean;
 }
 
 export interface SoundSettings {
@@ -71,5 +69,3 @@ export interface AppState {
   settings: Settings;
   sound: SoundSettings;
 }
-
-

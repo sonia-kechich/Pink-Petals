@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { Card, PageTitle, EmptyState } from "../components/Card";
-import { shortDate, toKey } from "../lib/date";
+
 import type { Note } from "../types";
 
 export default function Notes() {
@@ -121,7 +121,7 @@ function NoteCard({
             {body || <span className="muted">Write freely…</span>}
           </p>
         )}
-        <p className="muted mt-1 text-[11px]">{shortDate(toKey(new Date(note.updatedAt)))}</p>
+        <p className="muted mt-1 text-[11px]">{new Date(note.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
       </Card>
 
       {held && (

@@ -73,14 +73,17 @@ const initialState: AppState = {
   notes: [],
   sessions: [],
   settings: {
-    theme: "dark",
-    accentColor: "pink",
     userName: "",
     pomodoroFocus: 25,
     pomodoroBreak: 5,
     soundOnComplete: true,
     notifyOnComplete: false,
-    showCalendar: true,
+    showTasks: true,
+    showHabits: true,
+    showNotes: true,
+    showCalendar: false,
+    showTimer: false,
+    showDashboard: true,
   },
   sound: { ...defaultSound },
 };
@@ -345,13 +348,29 @@ export const useStore = create<AppState & Actions>()(
     }),
     {
       name: "calm-planner-v1",
-      version: 2,
+      version: 4,
       migrate: (persisted: any) => {
         if (!persisted || !persisted.tasks) return persisted;
         const tasks = persisted.tasks.map((t: any) => ({
           ...t,
           dateKey: t.dateKey || (t.createdAt ? format(t.createdAt, "yyyy-MM-dd") : todayKey()),
         }));
+        // Ensure old settings get new fields
+        if (persisted.settings) {
+          persisted.settings = {
+            userName: persisted.settings.userName || "",
+            pomodoroFocus: persisted.settings.pomodoroFocus ?? 25,
+            pomodoroBreak: persisted.settings.pomodoroBreak ?? 5,
+            soundOnComplete: persisted.settings.soundOnComplete ?? true,
+            notifyOnComplete: persisted.settings.notifyOnComplete ?? false,
+            showTasks: persisted.settings.showTasks ?? true,
+            showHabits: persisted.settings.showHabits ?? true,
+            showNotes: persisted.settings.showNotes ?? true,
+            showCalendar: persisted.settings.showCalendar ?? false,
+            showTimer: persisted.settings.showTimer ?? false,
+            showDashboard: persisted.settings.showDashboard ?? true,
+          };
+        }
         return { ...persisted, tasks };
       },
       storage: createJSONStorage(() => {

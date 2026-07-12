@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from "react";
-import { Trash2, ChevronUp, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { Card, PageTitle, EmptyState } from "../components/Card";
+import { Checkbox } from "../components/Checkbox";
 import { toKey, longestStreak } from "../lib/date";
 
 export default function Habits() {
@@ -88,6 +89,7 @@ function HabitCard({
 }) {
   const deleteHabit = useStore((s) => s.deleteHabit);
   const renameHabit = useStore((s) => s.renameHabit);
+  const toggleHabitDay = useStore((s) => s.toggleHabitDay);
   const todayKey = toKey(new Date());
   const doneToday = !!habit.log[todayKey];
   const allKeys = Object.keys(habit.log).filter((k) => habit.log[k]);
@@ -116,6 +118,7 @@ function HabitCard({
         onTouchCancel={onHoldEnd}
       >
         <div className="flex items-center gap-2">
+          <Checkbox checked={doneToday} onChange={() => toggleHabitDay(habit.id, todayKey)} label={`Mark ${habit.name} complete`} />
           {editing ? (
             <input
               className="flex-1 rounded-xl px-3 py-1.5 text-[15px] font-semibold outline-none"
@@ -137,10 +140,10 @@ function HabitCard({
           )}
           <button
             onClick={() => setShowDetails(!showDetails)}
-            aria-label="Toggle details"
+            aria-label={showDetails ? "Collapse details" : "Expand details"}
             className="icon-btn !h-8 !w-8"
           >
-            {showDetails ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+            {showDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
           <button onClick={() => deleteHabit(habit.id)} aria-label="Delete habit" className="icon-btn !h-8 !w-8">
             <Trash2 size={15} />

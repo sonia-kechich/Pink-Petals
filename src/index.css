@@ -22,24 +22,6 @@
     --ring: rgba(205, 123, 162, 0.32);
   }
 
-  [data-accent="blue"] {
-    --accent: #6da9d4;
-    --accent-2: #8ab8e0;
-    --ring: rgba(109, 169, 212, 0.32);
-  }
-
-  [data-accent="green"] {
-    --accent: #7bb88a;
-    --accent-2: #9ed1a8;
-    --ring: rgba(123, 184, 138, 0.32);
-  }
-
-  [data-accent="gray"] {
-    --accent: #9a8a9a;
-    --accent-2: #b8a8b8;
-    --ring: rgba(154, 138, 154, 0.32);
-  }
-
   * {
     -webkit-tap-highlight-color: transparent;
   }
