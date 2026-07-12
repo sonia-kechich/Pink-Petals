@@ -16,7 +16,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error) {
-    // In production you'd forward this to a logging service.
     console.error("Pink Petals Planner crashed:", error);
   }
 

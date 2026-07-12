@@ -31,7 +31,11 @@ export default function Notes() {
     <div>
       <div className="mb-5 flex items-end justify-between">
         <PageTitle title="Notes" subtitle="Quick thoughts, kept simple." />
-        <button onClick={() => addNote()} aria-label="New note" className="btn mb-5 !px-4">
+        <button
+          onClick={() => setSelectedId(addNote())}
+          aria-label="New note"
+          className="btn mb-5 !px-4"
+        >
           <Plus size={18} /> New
         </button>
       </div>
@@ -74,9 +78,13 @@ function NoteCard({
 }) {
   const updateNote = useStore((s) => s.updateNote);
   const deleteNote = useStore((s) => s.deleteNote);
+  const t = useT();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [expanded, setExpanded] = useState(false);
+
+  // Flush this note's pending cloud push when switching notes or unmounting.
+  useEffect(() => () => flushNotePush(note.id), [note.id]);
 
   return (
     <div className="relative" onClick={() => !expanded && setExpanded(true)}>

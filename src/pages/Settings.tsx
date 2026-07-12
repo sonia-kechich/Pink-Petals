@@ -14,6 +14,20 @@ export default function Settings() {
   const signOut = useAuth((s) => s.signOut);
   const totalSessions = sessions.filter((s) => s.mode === "focus").length;
 
+  const t = useT();
+  const { locale, setLocale } = useI18n();
+
+  const profile = useAuth((s) => s.profile);
+  const user = useAuth((s) => s.user);
+  const signedIn = useAuth((s) => s.status === "signed-in");
+  const signOut = useAuth((s) => s.signOut);
+
+  const accountName = profile?.display_name || settings.userName || "Your account";
+  const accountEmail = profile?.email || user?.email || "";
+  // Safe-degrade guard: until "Confirm email" is re-enabled in the auth
+  // dashboard, surface unverified accounts rather than silently trusting them.
+  const emailUnverified = Boolean(user && !user.email_confirmed_at);
+
   return (
     <div>
       <PageTitle title="Settings" subtitle="Make it yours." />

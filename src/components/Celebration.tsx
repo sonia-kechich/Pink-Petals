@@ -3,10 +3,6 @@ import { useEffect, useState } from "react";
 
 const PETALS = ["🌸", "🌷", "✨", "❀", "🌸"];
 
-/**
- * A brief, gentle petal burst from the bottom-center when a task is completed.
- * Tasteful and quick — celebratory, not a children's confetti cannon.
- */
 export function Celebration({ trigger }: { trigger: number }) {
   const [show, setShow] = useState(false);
 

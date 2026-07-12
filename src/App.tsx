@@ -21,8 +21,34 @@ function PageFallback() {
   return <div className="py-24" aria-hidden />;
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Today />} />
+        <Route path="tasks" element={<Tasks />} />
+        <Route path="habits" element={<Habits />} />
+        <Route path="notes" element={<Notes />} />
+        <Route path="timer" element={<Timer />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="*" element={<Today />} />
+      </Route>
+    </Routes>
+  );
+}
+
 export default function App() {
   useTheme();
+
+  const initAuth = useAuth((s) => s.init);
+  const status = useAuth((s) => s.status);
+  const recovering = useAuth((s) => s.recovering);
+
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
+
+  useCloudSync();
 
   useEffect(() => {
     useAuth.getState().init();
@@ -30,8 +56,8 @@ export default function App() {
 
   useEffect(() => {
     const splash = document.getElementById("boot-splash");
-    if (splash) splash.remove();
-  }, []);
+    if (splash && (!isSupabaseConfigured || status !== "loading")) splash.remove();
+  }, [status]);
 
   useCloudSync();
 

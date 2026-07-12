@@ -1,8 +1,11 @@
 export interface Task {
   id: string;
   title: string;
+  description?: string;
   done: boolean;
   createdAt: number;
+  /** Epoch ms of the last edit — the per-item merge key for cloud sync. */
+  updatedAt: number;
   completedAt?: number;
   order: number;
   dateKey: string;
@@ -11,6 +14,7 @@ export interface Task {
 export interface Habit {
   id: string;
   name: string;
+  description?: string;
   createdAt: number;
   log: Record<string, boolean>;
 }
@@ -21,6 +25,8 @@ export interface Note {
   body: string;
   createdAt: number;
   updatedAt: number;
+  /** Manual drag-order (ascending). Lower = earlier/newer-first in the list. */
+  order?: number;
 }
 
 export interface FocusSession {

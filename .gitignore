@@ -8,6 +8,17 @@ dist
 dist-ssr
 *.local
 
+# TypeScript incremental build caches
+*.tsbuildinfo
+
+# Compiled config output (source of truth is vite.config.ts)
+vite.config.js
+vite.config.d.ts
+
+# Packaged Android binaries (regenerate with the Capacitor toolchain)
+*.apk
+*.aab
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json
@@ -39,3 +50,6 @@ ios/
 .gradle/
 *.keystore
 !debug.keystore
+
+.vercel
+.env*

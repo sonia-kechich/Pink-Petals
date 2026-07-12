@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "composite": true,
+    // Keep the (required) composite emit out of the repo — it's only ever a
+    // type-check pass for vite.config.ts / scripts, never a shipped artifact.
+    "outDir": "./node_modules/.tmp/node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",

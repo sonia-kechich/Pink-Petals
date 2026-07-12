@@ -1,8 +1,10 @@
 import { useMemo, useState, useRef } from "react";
 import { Trash2, X } from "lucide-react";
 import { useStore } from "../store/useStore";
+import type { NewTaskInput } from "../store/useStore";
 import { Card, PageTitle, EmptyState } from "../components/Card";
-import { Checkbox } from "../components/Checkbox";
+import { SortableList } from "../components/SortableList";
+import { TaskItem } from "../components/TaskItem";
 import { Celebration } from "../components/Celebration";
 import { todayKey } from "../lib/date";
 import { format } from "date-fns";
@@ -128,7 +130,7 @@ export default function Tasks() {
   return (
     <div>
       <Celebration trigger={celebrate} />
-      <PageTitle title="Tasks" subtitle="A calm, simple list." />
+      <PageTitle title="Tasks" subtitle="A calm, scheduled list." />
 
       {/* Add task */}
       <div className="mb-4 flex items-center gap-2">
@@ -183,7 +185,7 @@ export default function Tasks() {
           ))}
 
           {done.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-4 lg:mt-0">
               <div className="mb-2 flex items-center justify-between px-1">
                 <span className="muted text-xs font-semibold uppercase tracking-wide">
                   COMPLETED · {done.length}

@@ -23,7 +23,7 @@ export function BottomNav() {
             {({ isActive }) => (
               <span className="flex flex-col items-center gap-1" style={{ color: isActive ? "var(--accent)" : "var(--text-muted)" }}>
                 <Icon size={21} strokeWidth={isActive ? 2.4 : 1.9} />
-                <span className="text-[11px] font-semibold">{label}</span>
+                <span className="text-[11px] font-semibold">{t(labelKey)}</span>
               </span>
             )}
           </NavLink>

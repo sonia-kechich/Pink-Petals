@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "../lib/utils";
 
-/** A soft round checkbox. One tap to toggle. */
 export function Checkbox({
   checked,
   onChange,

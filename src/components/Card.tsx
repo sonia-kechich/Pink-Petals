@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/utils";
 
-/** A soft, rounded surface with a gentle shadow. The app's only container. */
 export function Card({
   children,
   className,

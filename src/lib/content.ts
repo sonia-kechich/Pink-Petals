@@ -1,4 +1,3 @@
-/** Gentle, flower-themed motivation for the Today header. Calm, never pushy. */
 export const QUOTES: string[] = [
   "Bloom at your own pace.",
   "Small seeds become beautiful gardens.",
@@ -14,7 +13,6 @@ export const QUOTES: string[] = [
   "Soft days grow strong roots.",
 ];
 
-/** Deterministic line-of-the-day so it stays stable through the day. */
 export function quoteOfDay(dateKey: string): string {
   let hash = 0;
   for (let i = 0; i < dateKey.length; i++) {

@@ -1,11 +1,9 @@
-/** @type {import('tailwindcss').Config} */
 export default {
   darkMode: "class",
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Feminine luxury palette — dusty rose, mauve, lavender + warm neutrals.
         rose: {
           50: "#fbf1f5",
           100: "#f7e3ec",
