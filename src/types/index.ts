@@ -4,11 +4,15 @@ export interface Task {
   description?: string;
   done: boolean;
   createdAt: number;
-  /** Epoch ms of the last edit — the per-item merge key for cloud sync. */
   updatedAt: number;
   completedAt?: number;
   order: number;
   dateKey: string;
+  repeat?: RepeatRule;
+  dueDate?: string;
+  seriesId?: string;
+  focusSeconds?: number;
+  focused?: boolean;
 }
 
 export interface Habit {
@@ -16,7 +20,9 @@ export interface Habit {
   name: string;
   description?: string;
   createdAt: number;
+  updatedAt: number;
   log: Record<string, boolean>;
+  order?: number;
 }
 
 export interface Note {
@@ -25,7 +31,6 @@ export interface Note {
   body: string;
   createdAt: number;
   updatedAt: number;
-  /** Manual drag-order (ascending). Lower = earlier/newer-first in the list. */
   order?: number;
 }
 
@@ -58,6 +63,24 @@ export interface SoundSettings {
   favorites: string[];
 }
 
+export type SoundState = SoundSettings;
+
+export interface TimerState {
+  running: boolean;
+  startedAt?: number;
+  baseElapsed: number;
+}
+
+export interface RepeatRule {
+  freq: "daily" | "weekly" | "monthly" | "none";
+  weekdays?: number[];
+}
+
+export interface FocusTotals {
+  ms: number;
+  sessions: number;
+}
+
 export interface SyncData {
   tasks: Task[];
   habits: Habit[];
@@ -65,6 +88,11 @@ export interface SyncData {
   sessions: FocusSession[];
   settings: Settings;
   sound: SoundSettings;
+  deletedIds: Record<string, number>;
+  settingsUpdatedAt: number;
+  soundUpdatedAt: number;
+  focusTotals: FocusTotals;
+  schemaVersion: number;
 }
 
 export interface AppState {
@@ -74,4 +102,8 @@ export interface AppState {
   sessions: FocusSession[];
   settings: Settings;
   sound: SoundSettings;
+  deletedIds?: Record<string, number>;
+  settingsUpdatedAt?: number;
+  soundUpdatedAt?: number;
+  focusTotals?: FocusTotals;
 }

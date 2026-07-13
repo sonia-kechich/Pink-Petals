@@ -19,11 +19,10 @@ const remoteTask = (id: string, updatedAt: number): Task => ({
   id,
   title: id,
   done: false,
-  focused: false,
   createdAt: updatedAt,
   updatedAt,
   order: 0,
-  focusSeconds: 0,
+  dateKey: "",
 });
 
 describe("cloudSync echo-guard foundation", () => {

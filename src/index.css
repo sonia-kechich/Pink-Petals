@@ -156,29 +156,6 @@
     box-shadow: 0 0 0 3px var(--ring);
   }
 
-  /* A delicate gold-rose shimmer for special headings. */
-  /* Custom range slider for sound volume. */
-  .petal-range {
-    -webkit-appearance: none;
-    appearance: none;
-    height: 4px;
-    border-radius: 99px;
-    outline: none;
-    background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--surface-2) var(--fill, 0%));
-    cursor: pointer;
-  }
-  .petal-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid var(--on-accent);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    cursor: pointer;
-  }
-
   .shimmer-gold {
     background: linear-gradient(90deg, #cd7ba2, #e3c483, #b69ce0, #cd7ba2);
     background-size: 200% auto;

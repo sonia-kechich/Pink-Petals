@@ -44,7 +44,7 @@ export function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r transition-transform duration-300 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r transition-transform duration-300 lg:static lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{ background: "rgba(36, 26, 34, 0.95)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
@@ -65,7 +65,7 @@ export function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3">
-          {NAV_ITEMS.map(({ path, label, icon: Icon, show }) => {
+          {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
             const active = path === "/" ? pathname === "/" : pathname.startsWith(path);
             return (
               <button
@@ -110,7 +110,7 @@ export function Layout() {
       </aside>
 
       {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header
           className="flex h-16 items-center gap-4 border-b px-4 lg:px-8"

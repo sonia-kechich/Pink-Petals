@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+
 import { ChevronLeft, ChevronRight, ListChecks, Heart, Clock } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { monthGrid, toKey, format } from "../lib/date";
@@ -7,7 +8,6 @@ export default function Calendar() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [view, setView] = useState<"month" | "week">("month");
   const [selectedKey, setSelectedKey] = useState(toKey(today));
 
   const tasks = useStore((s) => s.tasks);
@@ -55,16 +55,7 @@ export default function Calendar() {
           <h1 className="heading text-2xl" style={{ color: "var(--text)" }}>Calendar</h1>
           <p className="muted mt-0.5 text-sm">Your month at a glance.</p>
         </div>
-        <div className="flex gap-1 rounded-full p-1" style={{ background: "var(--surface-2)" }}>
-          <button onClick={() => setView("month")} className="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
-            style={{ background: view === "month" ? "var(--accent)" : "transparent", color: view === "month" ? "var(--on-accent)" : "var(--text-muted)" }}>
-            Month
-          </button>
-          <button onClick={() => setView("week")} className="rounded-full px-3 py-1 text-xs font-semibold transition-colors"
-            style={{ background: view === "week" ? "var(--accent)" : "transparent", color: view === "week" ? "var(--on-accent)" : "var(--text-muted)" }}>
-            Week
-          </button>
-        </div>
+        
       </div>
 
       {/* Navigation */}

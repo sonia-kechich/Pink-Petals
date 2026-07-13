@@ -21,7 +21,7 @@ describe("migrateSyncDoc", () => {
   it("migrates an older doc forward and backfills fields", () => {
     const raw = {
       schemaVersion: SCHEMA_VERSION - 1,
-      tasks: [{ id: "a", title: "x", done: false, focused: false, createdAt: 5, order: 0 }],
+      tasks: [{ id: "a", title: "x", done: false, createdAt: 5, order: 0 }],
     };
     const { status, doc } = migrateSyncDoc(raw);
     expect(status).toBe("migrated");

@@ -13,12 +13,17 @@ const baseSync = (over: Partial<SyncData> = {}): SyncData => ({
   notes: [],
   sessions: [],
   settings: {
-    theme: "system",
     userName: "",
     pomodoroFocus: 25,
     pomodoroBreak: 5,
     soundOnComplete: true,
     notifyOnComplete: false,
+    showTasks: true,
+    showHabits: true,
+    showNotes: true,
+    showCalendar: false,
+    showTimer: false,
+    showDashboard: true,
   },
   sound: { selectedId: null, playing: false, volume: 0.6, favorites: [] },
   deletedIds: {},
@@ -33,11 +38,10 @@ const task = (id: string, updatedAt: number, over: Partial<Task> = {}): Task => 
   id,
   title: id,
   done: false,
-  focused: false,
   createdAt: 0,
   updatedAt,
   order: 0,
-  focusSeconds: 0,
+  dateKey: "",
   ...over,
 });
 
@@ -81,11 +85,11 @@ describe("mergeUserData", () => {
 
   it("settings/sound follow their own newest-wins timestamp", () => {
     const local = baseSync({
-      settings: { theme: "light", userName: "L", pomodoroFocus: 25, pomodoroBreak: 5, soundOnComplete: true, notifyOnComplete: false },
+      settings: { userName: "L", pomodoroFocus: 25, pomodoroBreak: 5, soundOnComplete: true, notifyOnComplete: false, showTasks: true, showHabits: true, showNotes: true, showCalendar: false, showTimer: false, showDashboard: true },
       settingsUpdatedAt: 5,
     });
     const remote = baseSync({
-      settings: { theme: "dark", userName: "R", pomodoroFocus: 50, pomodoroBreak: 10, soundOnComplete: false, notifyOnComplete: true },
+      settings: { userName: "R", pomodoroFocus: 50, pomodoroBreak: 10, soundOnComplete: false, notifyOnComplete: true, showTasks: true, showHabits: true, showNotes: true, showCalendar: false, showTimer: false, showDashboard: true },
       settingsUpdatedAt: 9,
     });
     expect(mergeUserData(local, remote).settings.userName).toBe("R");

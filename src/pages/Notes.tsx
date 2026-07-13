@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { Card, PageTitle, EmptyState } from "../components/Card";
+import { flushNotePush } from "../lib/noteDebounce";
 
 import type { Note } from "../types";
 
@@ -10,6 +11,7 @@ export default function Notes() {
   const addNote = useStore((s) => s.addNote);
   const moveNoteToTop = useStore((s) => s.moveNoteToTop);
   const moveNoteToBottom = useStore((s) => s.moveNoteToBottom);
+  const [_selectedId, setSelectedId] = useState<string | null>(null);
   const [heldId, setHeldId] = useState<string | null>(null);
 
   const holdTimer = useRef<number | null>(null);
@@ -32,7 +34,7 @@ export default function Notes() {
       <div className="mb-5 flex items-end justify-between">
         <PageTitle title="Notes" subtitle="Quick thoughts, kept simple." />
         <button
-          onClick={() => setSelectedId(addNote())}
+          onClick={() => { const id = addNote(); setSelectedId(id); }}
           aria-label="New note"
           className="btn mb-5 !px-4"
         >
@@ -78,12 +80,10 @@ function NoteCard({
 }) {
   const updateNote = useStore((s) => s.updateNote);
   const deleteNote = useStore((s) => s.deleteNote);
-  const t = useT();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body);
   const [expanded, setExpanded] = useState(false);
 
-  // Flush this note's pending cloud push when switching notes or unmounting.
   useEffect(() => () => flushNotePush(note.id), [note.id]);
 
   return (

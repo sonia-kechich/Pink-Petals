@@ -30,12 +30,17 @@ export const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // Local fallbacks so this module stays decoupled from the store. Must mirror
 // the store's defaults; only used for malformed/legacy remote docs.
 const FALLBACK_SETTINGS: Settings = {
-  theme: "system",
   userName: "",
   pomodoroFocus: 25,
   pomodoroBreak: 5,
   soundOnComplete: true,
   notifyOnComplete: false,
+  showTasks: true,
+  showHabits: true,
+  showNotes: true,
+  showCalendar: false,
+  showTimer: false,
+  showDashboard: true,
 };
 const FALLBACK_SOUND: SoundState = {
   selectedId: null,
@@ -117,7 +122,7 @@ function pickNewer<T>(a: T, ta: number, b: T, tb: number): T {
   return stableStringify(a) >= stableStringify(b) ? a : b;
 }
 
-type Keyed = { id: string; updatedAt: number };
+type Keyed = { id: string; updatedAt: number; order?: number; createdAt?: number };
 
 function mergeCollection<T extends Keyed>(
   local: T[],

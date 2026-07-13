@@ -63,7 +63,7 @@ export default function Settings() {
               <Stepper label="Break length" value={settings.pomodoroBreak} suffix="min" min={1} max={30} step={1}
                 onChange={(v) => updateSettings({ pomodoroBreak: v })} />
             </div>
-            <div className="pt-4">
+            <div className="py-4">
               <Toggle label="Chime on completion" value={settings.soundOnComplete}
                 onChange={(v) => updateSettings({ soundOnComplete: v })} />
             </div>

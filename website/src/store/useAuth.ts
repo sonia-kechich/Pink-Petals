@@ -215,4 +215,4 @@ export const useAuth = create<AuthState>((set) => ({
   clearRecovering: () => set({ recovering: false }),
 }));
 
-export { isSupabaseConfigured };
+

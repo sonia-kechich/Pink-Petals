@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { Plus, Flame, Check, Calendar, Trash2, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+import { Plus, Flame, Check, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { todayKey, toKey, currentStreak, longestStreak, daysInMonthKeys } from "../lib/date";
+import { todayKey, currentStreak, longestStreak } from "../lib/date";
 
 export default function Habits() {
   const habits = useStore((s) => s.habits);
@@ -10,6 +10,7 @@ export default function Habits() {
   const deleteHabit = useStore((s) => s.deleteHabit);
   const toggleHabitDay = useStore((s) => s.toggleHabitDay);
   const [draft, setDraft] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const submit = () => {
     if (!draft.trim()) return;
@@ -50,6 +51,8 @@ export default function Habits() {
             <HabitCard
               key={h.id}
               habit={h}
+              expanded={expandedId === h.id}
+              onToggle={() => setExpandedId(expandedId === h.id ? null : h.id)}
               onRename={(name) => renameHabit(h.id, name)}
               onDelete={() => deleteHabit(h.id)}
               onToggleDay={(k) => toggleHabitDay(h.id, k)}
@@ -62,16 +65,17 @@ export default function Habits() {
 }
 
 function HabitCard({
-  habit, onRename, onDelete, onToggleDay,
+  habit, expanded, onToggle, onRename, onDelete, onToggleDay,
 }: {
   habit: { id: string; name: string; log: Record<string, boolean> };
+  expanded: boolean;
+  onToggle: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
   onToggleDay: (key: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(habit.name);
-  const [expanded, setExpanded] = useState(false);
   const key = todayKey();
   const doneToday = !!habit.log[key];
   const streak = currentStreak(habit.log);
@@ -83,13 +87,8 @@ function HabitCard({
     setEditing(false);
   };
 
-  const now = new Date();
-  const days = daysInMonthKeys(now.getFullYear(), now.getMonth());
-
-  const completionRate = days.length > 0 ? Math.round((days.filter((d) => habit.log[d]).length / days.length) * 100) : 0;
-
   return (
-    <div className="card overflow-hidden">
+    <div className="card self-start overflow-hidden">
       <div className="p-4">
         <div className="flex items-center gap-3">
           <button
@@ -121,7 +120,7 @@ function HabitCard({
             )}
           </div>
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={onToggle}
             className="icon-btn !h-7 !w-7"
             aria-label={expanded ? "Collapse details" : "Expand details"}
           >
@@ -131,52 +130,22 @@ function HabitCard({
         </div>
 
         {expanded && (
-          <>
-            {/* Stats */}
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <div className="rounded-xl px-2 py-1.5 text-center" style={{ background: "var(--surface-2)" }}>
-                <p className="flex items-center justify-center gap-1 text-xs font-bold tabular-nums" style={{ color: "var(--accent)" }}>
-                  <Flame size={12} /> {streak}
-                </p>
-                <p className="muted text-[9px]">Streak</p>
-              </div>
-              <div className="rounded-xl px-2 py-1.5 text-center" style={{ background: "var(--surface-2)" }}>
-                <p className="text-xs font-bold tabular-nums" style={{ color: "var(--text)" }}>{best}</p>
-                <p className="muted text-[9px]">Best</p>
-              </div>
-              <div className="rounded-xl px-2 py-1.5 text-center" style={{ background: "var(--surface-2)" }}>
-                <p className="text-xs font-bold tabular-nums" style={{ color: "var(--text)" }}>{totalDays}</p>
-                <p className="muted text-[9px]">Total</p>
-              </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-xl px-3 py-2.5 text-center" style={{ background: "var(--surface-2)" }}>
+              <p className="flex items-center justify-center gap-1 text-xs font-bold tabular-nums" style={{ color: "var(--accent)" }}>
+                <Flame size={12} /> {streak}
+              </p>
+              <p className="muted text-[9px]">Streak</p>
             </div>
-
-            {/* Progress ring */}
-            <div className="mt-3 flex items-center gap-3">
-              <div className="relative h-12 w-12 shrink-0">
-                <svg width={48} height={48} className="-rotate-90">
-                  <circle cx={24} cy={24} r={20} fill="none" stroke="var(--surface-2)" strokeWidth={4} />
-                  <circle cx={24} cy={24} r={20} fill="none" stroke="var(--accent)" strokeWidth={4} strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 20} strokeDashoffset={2 * Math.PI * 20 * (1 - completionRate / 100)}
-                    style={{ transition: "stroke-dashoffset 0.5s ease" }}
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums" style={{ color: "var(--accent)" }}>
-                  {completionRate}%
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-medium" style={{ color: "var(--text)" }}>Monthly progress</p>
-                <p className="muted text-[10px]">{days.filter((d) => habit.log[d]).length} of {days.length} days</p>
-              </div>
-              <button
-                onClick={() => setExpanded(false)}
-                className="icon-btn !h-7 !w-7"
-                aria-label="Collapse"
-              >
-                <ChevronUp size={14} />
-              </button>
+            <div className="rounded-xl px-3 py-2.5 text-center" style={{ background: "var(--surface-2)" }}>
+              <p className="text-xs font-bold tabular-nums" style={{ color: "var(--text)" }}>{best}</p>
+              <p className="muted text-[9px]">Best</p>
             </div>
-          </>
+            <div className="rounded-xl px-3 py-2.5 text-center" style={{ background: "var(--surface-2)" }}>
+              <p className="text-xs font-bold tabular-nums" style={{ color: "var(--text)" }}>{totalDays}</p>
+              <p className="muted text-[9px]">Total</p>
+            </div>
+          </div>
         )}
       </div>
     </div>

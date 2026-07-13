@@ -9,9 +9,11 @@ import type {
   FocusSession,
   Settings,
   SoundSettings,
+  TimerState,
 } from "../types";
 import { uid } from "../lib/utils";
-import { todayKey, format } from "../lib/date";
+import { todayKey, format, nextOccurrence } from "../lib/date";
+import { SCHEMA_VERSION } from "../lib/schema";
 
 interface Actions {
   // Tasks
@@ -24,12 +26,14 @@ interface Actions {
   moveTaskToTop: (id: string) => void;
   moveTaskToBottom: (id: string) => void;
   moveTask: (id: string, toIndex: number) => void;
+  reorderTasks: (orderedIds: string[]) => void;
 
   addHabit: (name: string) => void;
   renameHabit: (id: string, name: string) => void;
   toggleHabitDay: (id: string, dateKey: string) => void;
   updateHabit: (id: string, patch: Partial<Pick<Habit, "name" | "description">>) => void;
   deleteHabit: (id: string) => void;
+  moveHabit: (id: string, toIndex: number) => void;
   moveHabitToTop: (id: string) => void;
   moveHabitToBottom: (id: string) => void;
 
@@ -123,17 +127,14 @@ export const useStore = create<AppState & Actions>()(
       // ---- Tasks -----------------------------------------------------
       addTask: (title, dateKey) =>
         set((s) => {
-          const data: NewTaskInput =
-            typeof input === "string" ? { title: input } : input;
-          const t = data.title.trim();
+          const t = title.trim();
           if (!t) return {};
-          const now = Date.now();
           const task: Task = {
             id: uid(),
             title: t,
-            description: data.description?.trim() || undefined,
             done: false,
             createdAt: Date.now(),
+            updatedAt: Date.now(),
             order: s.tasks.length,
             dateKey: dateKey || todayKey(),
           };
@@ -166,14 +167,13 @@ export const useStore = create<AppState & Actions>()(
               title: target.title,
               description: target.description,
               done: false,
-              focused: false,
               createdAt: now,
               updatedAt: now,
               order: topOrder(s.tasks),
+              dateKey: nextDue,
               dueDate: nextDue,
               repeat: target.repeat,
               seriesId: target.seriesId ?? target.id,
-              focusSeconds: 0,
             };
             return { tasks: [next, ...tasks] };
           }
@@ -201,6 +201,9 @@ export const useStore = create<AppState & Actions>()(
           ),
         })),
 
+      updateSettings: (patch) =>
+        set((s) => ({ settings: { ...s.settings, ...patch } })),
+
       clearCompleted: () =>
         set((s) => {
           const now = Date.now();
@@ -209,8 +212,15 @@ export const useStore = create<AppState & Actions>()(
           return { tasks: s.tasks.filter((t) => !t.done), deletedIds };
         }),
 
-      reorderTasks: (orderedIds) =>
-        set((s) => ({ tasks: reorderTaskList(s.tasks, orderedIds, Date.now()) })),
+      reorderTasks: (orderedIds: string[]) =>
+        set((state) => {
+          const position = new Map(orderedIds.map((id, i) => [id, i]));
+          return {
+            tasks: state.tasks.map((t) =>
+              position.has(t.id) ? { ...t, order: position.get(t.id)! } : t
+            ),
+          };
+        }),
 
       moveTaskToTop: (id) =>
         set((s) => {
@@ -296,26 +306,44 @@ export const useStore = create<AppState & Actions>()(
           deletedIds: { ...s.deletedIds, [id]: Date.now() },
         })),
 
-      reorderHabits: (orderedIds) =>
-        set((s) => ({ habits: reorderList(s.habits, orderedIds, Date.now()) })),
+      reorderHabits: (orderedIds: string[]) =>
+        set((s) => {
+          const rank = new Map(orderedIds.map((id, i) => [id, i]));
+          return {
+            habits: s.habits.map((h) => {
+              const order = rank.get(h.id);
+              return order !== undefined ? { ...h, order, updatedAt: Date.now() } : h;
+            }),
+          };
+        }),
+
+      moveHabit: (id, toIndex) =>
+        set((state) => {
+          const habits = [...state.habits];
+          const fromIndex = habits.findIndex((h) => h.id === id);
+          if (fromIndex === -1) return state;
+          const [moved] = habits.splice(fromIndex, 1);
+          habits.splice(toIndex, 0, moved);
+          return { habits };
+        }),
 
       moveHabitToTop: (id) =>
-        set((s) => {
-          const idx = s.habits.findIndex((h) => h.id === id);
+        set((state) => {
+          const habits = [...state.habits];
+          const idx = habits.findIndex((h) => h.id === id);
           if (idx < 1) return {};
-          const habits = [...s.habits];
-          const [item] = habits.splice(idx, 1);
-          habits.unshift(item);
+          const [moved] = habits.splice(idx, 1);
+          habits.unshift(moved);
           return { habits };
         }),
 
       moveHabitToBottom: (id) =>
-        set((s) => {
-          const idx = s.habits.findIndex((h) => h.id === id);
-          if (idx < 0 || idx === s.habits.length - 1) return {};
-          const habits = [...s.habits];
-          const [item] = habits.splice(idx, 1);
-          habits.push(item);
+        set((state) => {
+          const habits = [...state.habits];
+          const idx = habits.findIndex((h) => h.id === id);
+          if (idx < 0 || idx === habits.length - 1) return {};
+          const [moved] = habits.splice(idx, 1);
+          habits.push(moved);
           return { habits };
         }),
 
@@ -375,10 +403,10 @@ export const useStore = create<AppState & Actions>()(
             mode,
             taskId,
           };
+          return { sessions: [...s.sessions, session] };
         }),
 
-      setTimerTask: (taskId) =>
-        set((s) => ({ timer: { ...s.timer, taskId } })),
+      setTimerTask: (_taskId: string) => set(() => ({})),
 
       // ---- Sound -----------------------------------------------------
       selectSound: (id) =>
@@ -420,6 +448,11 @@ export const useStore = create<AppState & Actions>()(
           sessions: s.sessions,
           settings: s.settings,
           sound: s.sound,
+          deletedIds: s.deletedIds ?? {},
+          settingsUpdatedAt: s.settingsUpdatedAt ?? 0,
+          soundUpdatedAt: s.soundUpdatedAt ?? 0,
+          focusTotals: s.focusTotals ?? { ms: 0, sessions: 0 },
+          schemaVersion: SCHEMA_VERSION,
         };
       },
 
@@ -431,6 +464,10 @@ export const useStore = create<AppState & Actions>()(
           sessions: data.sessions ?? s.sessions,
           settings: data.settings ?? s.settings,
           sound: data.sound ?? s.sound,
+          deletedIds: (data as SyncData).deletedIds ?? s.deletedIds,
+          settingsUpdatedAt: (data as SyncData).settingsUpdatedAt ?? s.settingsUpdatedAt,
+          soundUpdatedAt: (data as SyncData).soundUpdatedAt ?? s.soundUpdatedAt,
+          focusTotals: (data as SyncData).focusTotals ?? s.focusTotals,
         })),
 
       resetAll: () => {

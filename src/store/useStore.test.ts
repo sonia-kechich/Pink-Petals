@@ -6,11 +6,10 @@ const mk = (order: number): Task => ({
   id: String(order),
   title: "t",
   done: false,
-  focused: false,
   createdAt: 0,
   updatedAt: 0,
   order,
-  focusSeconds: 0,
+  dateKey: "",
 });
 
 describe("topOrder", () => {

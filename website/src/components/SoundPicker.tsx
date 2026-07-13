@@ -105,7 +105,7 @@ function SoundTile({ sound, active, playing, favorite, onTap, onFavorite }: {
 function Equalizer({ mini }: { mini?: boolean }) {
   const h = mini ? 6 : 10;
   return (
-    <span className={mini ? "flex items-end gap-[2px]" : "flex items-end gap-[2px]"} style={{ height: h }} aria-hidden>
+    <span className="flex items-end gap-[2px]" style={{ height: h }} aria-hidden>
       {[0, 1, 2].map((i) => (
         <span key={i} style={{ width: 2, borderRadius: 2, background: "currentColor", height: h * 0.6 }} />
       ))}

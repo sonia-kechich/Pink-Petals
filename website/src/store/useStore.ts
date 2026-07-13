@@ -24,6 +24,7 @@ interface Actions {
   moveTaskToTop: (id: string) => void;
   moveTaskToBottom: (id: string) => void;
   moveTask: (id: string, toIndex: number) => void;
+  reorderTasks: (orderedIds: string[]) => void;
 
   // Habits
   addHabit: (name: string) => void;
@@ -171,6 +172,16 @@ export const useStore = create<AppState & Actions>()(
           const clamped = Math.max(0, Math.min(toIndex, tasks.length));
           tasks.splice(clamped, 0, item);
           return { tasks };
+        }),
+
+      reorderTasks: (orderedIds: string[]) =>
+        set((state) => {
+          const position = new Map(orderedIds.map((id, i) => [id, i]));
+          return {
+            tasks: state.tasks.map((t) =>
+              position.has(t.id) ? { ...t, order: position.get(t.id)! } : t
+            ),
+          };
         }),
 
       // ---- Habits ----------------------------------------------------

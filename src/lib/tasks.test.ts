@@ -7,11 +7,10 @@ const makeTask = (id: string, order: number, extra: Partial<Task> = {}): Task =>
   id,
   title: id,
   done: false,
-  focused: false,
   createdAt: 0,
   updatedAt: 0,
   order,
-  focusSeconds: 0,
+  dateKey: "",
   ...extra,
 });
 

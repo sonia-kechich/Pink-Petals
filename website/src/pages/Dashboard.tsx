@@ -38,7 +38,7 @@ export default function Dashboard() {
         .reduce((sum, s) => sum + s.minutes, 0);
       return { day: format(d, "EEE"), focusMin, isToday: k === key };
     });
-  }, [sessions, key]);
+  }, [sessions, key, now]);
 
   const maxFocus = Math.max(...weeklyData.map((d) => d.focusMin), 1);
 
@@ -47,7 +47,8 @@ export default function Dashboard() {
 
   const totalFocusHours = Math.floor(totalFocus / 60);
   const totalFocusRemainder = totalFocus % 60;
-  const avgDailyFocus = totalSessions > 0 ? Math.round(totalFocus / 7) : 0;
+  const activeDays = new Set(sessions.filter((s) => s.mode === "focus").map((s) => toKey(new Date(s.startedAt)))).size;
+  const avgDailyFocus = activeDays > 0 ? Math.round(totalFocus / activeDays) : 0;
 
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 

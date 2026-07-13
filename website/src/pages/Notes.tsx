@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, Search, Pin } from "lucide-react";
+import { Plus, Trash2, Search } from "lucide-react";
 import { useStore } from "../store/useStore";
 
 
@@ -75,7 +75,7 @@ function NoteCard({
 
   return (
     <div
-      className="card cursor-pointer transition-all hover:shadow-soft-lg"
+      className="card cursor-pointer p-4 transition-all hover:shadow-soft-lg"
       onClick={() => !expanded && setExpanded(true)}
     >
       <div className="flex items-start gap-2">
