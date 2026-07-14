@@ -3,6 +3,19 @@ import { Plus, Calendar, Trash2, Check, X } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { todayKey, format } from "../lib/date";
 
+interface TaskItem {
+  id: string;
+  title: string;
+  done: boolean;
+  dateKey: string;
+  order: number;
+}
+
+// ---- layout constants for the absolute-positioned sortable list ----
+const CARD_HEIGHT = 56;
+const ROW_GAP = 8;
+const ROW_HEIGHT = CARD_HEIGHT + ROW_GAP;
+
 // Long-press delay before a touch pointer starts dragging (lets normal scrolling win first).
 const TOUCH_HOLD_MS = 260;
 // Distance, in px, a mouse has to move before a press becomes a drag rather than a click.
@@ -10,30 +23,124 @@ const MOUSE_DRAG_THRESHOLD = 4;
 // Distance a touch pointer can wander during the hold before we give up on starting a drag.
 const TOUCH_CANCEL_THRESHOLD = 10;
 
-type DragRef = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  pointerType: string;
-  pendingId?: string;
-  target: HTMLElement;
-} | null;
+// Stops the browser from treating a press-and-hold as a text-selection gesture. Without
+// this, holding a finger on a row shows the native selection carets/blobs ("points") and
+// the copy/select-all callout before (or instead of) dragging.
+const noSelectStyle: React.CSSProperties = {
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  WebkitTouchCallout: "none",
+  WebkitTapHighlightColor: "transparent",
+};
 
-// Reusable press-and-hold / press-and-drag reorder behavior, TickTick-style. Works for any
-// layout (list or grid) because it finds the drop target by hit-testing under the pointer
-// rather than assuming fixed row positions.
-function useDragReorder(ids: string[], onReorder: (orderedIds: string[]) => void) {
-  const [order, setOrder] = useState(ids);
+function TaskRow({
+  task,
+  todayK,
+  done,
+  dragging,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  task: TaskItem;
+  todayK: string;
+  done: boolean;
+  dragging: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (task: TaskItem) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div
+      className="card flex items-start gap-3 !py-3 !px-4"
+      style={{ opacity: done && !dragging ? 0.6 : 1, boxShadow: dragging ? "0 8px 20px rgba(0,0,0,0.14)" : undefined }}
+    >
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => onToggle(task.id)}
+        className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors"
+        style={{
+          borderColor: done ? "var(--accent)" : "var(--border)",
+          background: done ? "var(--accent)" : "transparent",
+        }}
+      >
+        <Check size={11} strokeWidth={3} style={{ color: done ? "var(--on-accent)" : "transparent" }} />
+      </button>
+
+      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onEdit(task)}>
+        <p
+          className="text-sm"
+          style={{
+            color: done ? "var(--text-muted)" : "var(--text)",
+            fontWeight: done ? 400 : 500,
+            textDecoration: done ? "line-through" : "none",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {task.title}
+        </p>
+        <p className="mt-0.5 flex items-center gap-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
+          <Calendar size={10} />
+          {(() => {
+            if (!task.dateKey || task.dateKey === todayK) return "Today";
+            try { return format(new Date(task.dateKey + "T00:00:00"), "MMM d, yyyy"); }
+            catch { return task.dateKey; }
+          })()}
+        </p>
+      </div>
+
+      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => onDelete(task.id)} className="icon-btn !h-7 !w-7 shrink-0">
+        <Trash2 size={13} />
+      </button>
+    </div>
+  );
+}
+
+// The whole row is the drag surface, like TickTick — press and move (or press-hold on
+// touch) anywhere on a task, and it lifts and reorders as you drag it up or down.
+function SortableSection({
+  title,
+  tasks,
+  todayK,
+  done,
+  onToggle,
+  onEdit,
+  onDelete,
+  onReorder,
+}: {
+  title: string;
+  tasks: TaskItem[];
+  todayK: string;
+  done: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (task: TaskItem) => void;
+  onDelete: (id: string) => void;
+  onReorder: (orderedIds: string[]) => void;
+}) {
+  const [order, setOrder] = useState<string[]>(tasks.map((t) => t.id));
   const [dragId, setDragId] = useState<string | null>(null);
-  const [dragDelta, setDragDelta] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<DragRef>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+
+  type DragState = {
+    pointerId: number;
+    startY: number;
+    startIndex: number;
+    baseOrder: string[];
+    pointerType: string;
+    pendingId?: string;
+    target?: HTMLElement;
+  };
+  const dragRef = useRef<DragState | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // stay in sync with the store, but don't fight an in-progress drag
   useEffect(() => {
-    if (!dragId) setOrder(ids);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ids.join("|"), dragId]);
+    if (!dragId) setOrder(tasks.map((t) => t.id));
+  }, [tasks, dragId]);
 
   const clearHoldTimer = () => {
     if (holdTimerRef.current) {
@@ -42,62 +149,60 @@ function useDragReorder(ids: string[], onReorder: (orderedIds: string[]) => void
     }
   };
 
-  const beginDrag = useCallback((id: string, pointerId: number, target: HTMLElement, x: number, y: number) => {
-    target.setPointerCapture(pointerId);
-    dragRef.current = { pointerId, startX: x, startY: y, pointerType: "touch", target };
-    setDragId(id);
-    setDragDelta({ x: 0, y: 0 });
-  }, []);
+  const beginDrag = useCallback(
+    (id: string, pointerId: number, target: HTMLElement, startY: number, pointerType: string) => {
+      target.setPointerCapture(pointerId);
+      const startIndex = order.indexOf(id);
+      dragRef.current = { pointerId, startY, startIndex, baseOrder: order, pointerType };
+      setDragId(id);
+      setDragOffset(0);
+    },
+    [order]
+  );
 
-  const findDropTarget = (x: number, y: number, excludeId: string) => {
-    const el = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest("[data-task-id]") as HTMLElement | null;
-    const id = el?.getAttribute("data-task-id");
-    if (!id || id === excludeId) return null;
-    return id;
-  };
+  const onPointerMove = useCallback(
+    (e: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
 
-  const onPointerMove = useCallback((e: PointerEvent) => {
-    const drag = dragRef.current;
-    if (!drag || e.pointerId !== drag.pointerId) return;
-
-    if (dragId) {
-      e.preventDefault();
-      setDragDelta({ x: e.clientX - drag.startX, y: e.clientY - drag.startY });
-      const targetId = findDropTarget(e.clientX, e.clientY, dragId);
-      if (targetId) {
-        setOrder((prev) => {
-          const from = prev.indexOf(dragId);
-          const to = prev.indexOf(targetId);
-          if (from === -1 || to === -1 || from === to) return prev;
-          const next = [...prev];
-          next.splice(from, 1);
-          next.splice(to, 0, dragId);
-          return next;
-        });
+      if (dragId) {
+        // active drag: move the card and re-slot siblings
+        e.preventDefault();
+        const delta = e.clientY - drag.startY;
+        setDragOffset(delta);
+        const shift = Math.round(delta / ROW_HEIGHT);
+        const targetIndex = Math.max(0, Math.min(drag.baseOrder.length - 1, drag.startIndex + shift));
+        const next = [...drag.baseOrder];
+        next.splice(drag.startIndex, 1);
+        next.splice(targetIndex, 0, dragId);
+        setOrder(next);
+        return;
       }
-      return;
-    }
 
-    if (drag.pointerType === "mouse" && drag.pendingId) {
-      const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
-      if (dist > MOUSE_DRAG_THRESHOLD) {
-        beginDrag(drag.pendingId, drag.pointerId, drag.target, drag.startX, drag.startY);
+      // not dragging yet: mouse promotes to a drag once it's moved past the click threshold
+      if (drag.pointerType === "mouse" && drag.pendingId) {
+        const dist = Math.abs(e.clientY - drag.startY);
+        if (dist > MOUSE_DRAG_THRESHOLD) {
+          beginDrag(drag.pendingId, drag.pointerId, drag.target!, drag.startY, "mouse");
+        }
+      } else if (drag.pointerType !== "mouse" && drag.pendingId) {
+        // touch: wandering too far before the hold timer fires cancels the pending drag
+        const dist = Math.abs(e.clientY - drag.startY);
+        if (dist > TOUCH_CANCEL_THRESHOLD) {
+          clearHoldTimer();
+          dragRef.current = null;
+        }
       }
-    } else if (drag.pointerType !== "mouse" && drag.pendingId) {
-      const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
-      if (dist > TOUCH_CANCEL_THRESHOLD) {
-        clearHoldTimer();
-        dragRef.current = null;
-      }
-    }
-  }, [dragId, beginDrag]);
+    },
+    [dragId, beginDrag]
+  );
 
   const endDrag = useCallback(() => {
     clearHoldTimer();
     if (dragId) onReorder(order);
     dragRef.current = null;
     setDragId(null);
-    setDragDelta({ x: 0, y: 0 });
+    setDragOffset(0);
   }, [dragId, order, onReorder]);
 
   useEffect(() => {
@@ -111,86 +216,94 @@ function useDragReorder(ids: string[], onReorder: (orderedIds: string[]) => void
     };
   }, [onPointerMove, endDrag]);
 
-  const getRowProps = (id: string) => ({
-    "data-task-id": id,
-    onPointerDown: (e: React.PointerEvent) => {
-      if ((e.target as HTMLElement).closest("button")) return; // let checkbox/delete clicks through
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      e.preventDefault(); // stops native text-selection carets/callout on long-press
+  const onCardPointerDown = (id: string) => (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return; // let checkbox/delete clicks through untouched
+    if (e.pointerType === "mouse" && e.button !== 0) return;
 
-      const target = e.currentTarget as HTMLElement;
-      dragRef.current = {
-        pointerId: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
-        pointerType: e.pointerType,
-        pendingId: id,
-        target,
-      };
+    // Prevent the browser's own long-press behavior (text selection carets, the
+    // select/copy callout) from ever getting a chance to fire.
+    e.preventDefault();
 
-      if (e.pointerType === "mouse") return; // drag begins once movement passes the threshold
+    const target = e.currentTarget as HTMLElement;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      startIndex: order.indexOf(id),
+      baseOrder: order,
+      pointerType: e.pointerType,
+      pendingId: id,
+      target,
+    };
 
-      holdTimerRef.current = setTimeout(() => {
-        if (dragRef.current && dragRef.current.pendingId === id) {
-          beginDrag(id, e.pointerId, target, e.clientX, e.clientY);
-        }
-      }, TOUCH_HOLD_MS);
-    },
-    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-    style: {
-      touchAction: "none" as const,
-      userSelect: "none" as const,
-      WebkitUserSelect: "none" as const,
-      WebkitTouchCallout: "none" as const,
-      WebkitTapHighlightColor: "transparent",
-      cursor: dragId === id ? "grabbing" : "grab",
-      position: dragId === id ? ("relative" as const) : undefined,
-      zIndex: dragId === id ? 10 : undefined,
-      boxShadow: dragId === id ? "0 8px 20px rgba(0,0,0,0.14)" : undefined,
-      transform: dragId === id ? `translate(${dragDelta.x}px, ${dragDelta.y}px) scale(1.03)` : undefined,
-      transition: dragId === id ? "none" : "transform 150ms ease",
-    },
-  });
+    if (e.pointerType === "mouse") return; // drag begins once movement passes the threshold
 
-  return { order, dragId, getRowProps };
+    holdTimerRef.current = setTimeout(() => {
+      if (dragRef.current && dragRef.current.pendingId === id) {
+        beginDrag(id, e.pointerId, target, e.clientY, e.pointerType);
+      }
+    }, TOUCH_HOLD_MS);
+  };
+
+  if (tasks.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="muted mb-3 text-xs font-semibold uppercase tracking-wide">
+        {title} · {tasks.length}
+      </h2>
+      <div style={{ position: "relative", height: order.length * ROW_HEIGHT - ROW_GAP, ...noSelectStyle }}>
+        {order.map((id, index) => {
+          const task = byId.get(id);
+          if (!task) return null;
+          const isDragging = dragId === id;
+          return (
+            <div
+              key={id}
+              onPointerDown={onCardPointerDown(id)}
+              onContextMenu={(e) => e.preventDefault()}
+              onDragStart={(e) => e.preventDefault()}
+              draggable={false}
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: index * ROW_HEIGHT,
+                transform: isDragging ? `translateY(${dragOffset}px) scale(1.015)` : "none",
+                transition: isDragging ? "none" : "top 200ms cubic-bezier(0.2,0,0,1)",
+                zIndex: isDragging ? 10 : 1,
+                cursor: isDragging ? "grabbing" : "grab",
+                touchAction: "none",
+                ...noSelectStyle,
+              }}
+            >
+              <TaskRow task={task} todayK={todayK} done={done} dragging={isDragging} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function Tasks() {
-  const tasks = useStore((s) => s.tasks);
+  const tasks = useStore((s) => s.tasks) as TaskItem[];
   const addTask = useStore((s) => s.addTask);
   const toggleTask = useStore((s) => s.toggleTask);
   const deleteTask = useStore((s) => s.deleteTask);
   const updateTask = useStore((s) => s.updateTask);
   const clearCompleted = useStore((s) => s.clearCompleted);
-  // NOTE: add this action to useStore — see snippet in chat. It just rewrites each task's
-  // `order` field to match the position it was dropped into.
+  // NOTE: add this action to your store (see reorderTasks example below the file).
   const reorderTasks = useStore((s) => s.reorderTasks);
 
   const [draft, setDraft] = useState("");
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDate, setEditDate] = useState("");
-  const [editError, setEditError] = useState("");
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
-  const [lastDeleted, setLastDeleted] = useState<{ title: string; dateKey: string } | null>(null);
-  const [toast, setToast] = useState("");
 
   const todayK = todayKey();
 
-  const filtered = useMemo(
-    () => [...tasks].sort((a, b) => a.order - b.order),
-    [tasks]
-  );
-
-  const byId = useMemo(() => new Map(filtered.map((t) => [t.id, t])), [filtered]);
-  const active = useMemo(() => filtered.filter((t) => !t.done), [filtered]);
-  const done = useMemo(() => filtered.filter((t) => t.done), [filtered]);
-
-  const activeIds = useMemo(() => active.map((t) => t.id), [active]);
-  const doneIds = useMemo(() => done.map((t) => t.id), [done]);
-
-  const activeDrag = useDragReorder(activeIds, reorderTasks);
-  const doneDrag = useDragReorder(doneIds, reorderTasks);
+  const active = useMemo(() => tasks.filter((t) => !t.done).sort((a, b) => a.order - b.order), [tasks]);
+  const done = useMemo(() => tasks.filter((t) => t.done).sort((a, b) => a.order - b.order), [tasks]);
 
   const submit = () => {
     if (!draft.trim()) return;
@@ -198,49 +311,15 @@ export default function Tasks() {
     setDraft("");
   };
 
-  const openEdit = (task: { id: string; title: string; dateKey: string }) => {
+  const openEdit = (task: TaskItem) => {
     setEditTaskId(task.id);
     setEditTitle(task.title);
     setEditDate(task.dateKey);
-    setEditError("");
   };
-
-  const closeEdit = useCallback(() => {
-    setEditTaskId(null);
-    setEditError("");
-  }, []);
 
   const saveEdit = () => {
-    if (!editTitle.trim()) {
-      setEditError("Task name can't be empty.");
-      return;
-    }
-    if (editTaskId) updateTask(editTaskId, { title: editTitle.trim(), dateKey: editDate });
-    closeEdit();
-  };
-
-  useEffect(() => {
-    if (!editTaskId) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeEdit();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [editTaskId, closeEdit]);
-
-  const requestDelete = (task: { id: string; title: string }) => setPendingDelete(task);
-  const confirmDelete = () => {
-    if (!pendingDelete) return;
-    const task = tasks.find((t) => t.id === pendingDelete.id);
-    deleteTask(pendingDelete.id);
-    if (task) setLastDeleted({ title: task.title, dateKey: task.dateKey });
-    setToast(`Deleted "${pendingDelete.title}"`);
-    setPendingDelete(null);
-    setTimeout(() => setToast(""), 4000);
-  };
-  const undoDelete = () => {
-    if (!lastDeleted) return;
-    addTask(lastDeleted.title, lastDeleted.dateKey);
-    setLastDeleted(null);
-    setToast("");
+    if (editTaskId) updateTask(editTaskId, { title: editTitle, dateKey: editDate });
+    setEditTaskId(null);
   };
 
   return (
@@ -248,7 +327,7 @@ export default function Tasks() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="heading text-2xl" style={{ color: "var(--text)" }}>Tasks</h1>
-          <p className="muted mt-0.5 text-sm">Organize your day, gently. Press and hold a task to reorder it.</p>
+          <p className="muted mt-0.5 text-sm">Organize your day, gently.</p>
         </div>
         <button onClick={clearCompleted} className="btn-soft text-xs">Clear completed</button>
       </div>
@@ -275,163 +354,42 @@ export default function Tasks() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Active */}
-          {active.length > 0 && (
-            <div>
-              <h2 className="muted mb-3 text-xs font-semibold uppercase tracking-wide">Active · {active.length}</h2>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {activeDrag.order.map((id) => {
-                  const t = byId.get(id);
-                  if (!t) return null;
-                  const rowProps = activeDrag.getRowProps(id);
-                  return (
-                    <div
-                      key={id}
-                      data-task-id={rowProps["data-task-id"]}
-                      onPointerDown={rowProps.onPointerDown}
-                      onContextMenu={rowProps.onContextMenu}
-                      style={rowProps.style}
-                      className="card flex items-start gap-3 !py-3 !px-4"
-                    >
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => toggleTask(t.id)}
-                        className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors"
-                        style={{ borderColor: "var(--border)", background: "transparent" }}
-                      >
-                        <Check size={11} strokeWidth={3} style={{ color: "transparent" }} />
-                      </button>
-                      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => openEdit(t)}>
-                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{t.title}</p>
-                        <p className="mt-0.5 flex items-center gap-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
-                          <Calendar size={10} />
-                          {t.dateKey === todayK ? "Today" : format(new Date(t.dateKey + "T00:00:00"), "MMM d, yyyy")}
-                        </p>
-                      </div>
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => requestDelete(t)}
-                        className="icon-btn !h-7 !w-7 shrink-0"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Completed */}
-          {done.length > 0 && (
-            <div>
-              <h2 className="muted mb-3 text-xs font-semibold uppercase tracking-wide">Completed · {done.length}</h2>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {doneDrag.order.map((id) => {
-                  const t = byId.get(id);
-                  if (!t) return null;
-                  const rowProps = doneDrag.getRowProps(id);
-                  return (
-                    <div
-                      key={id}
-                      data-task-id={rowProps["data-task-id"]}
-                      onPointerDown={rowProps.onPointerDown}
-                      onContextMenu={rowProps.onContextMenu}
-                      style={{ opacity: 0.6, ...rowProps.style }}
-                      className="card flex items-start gap-3 !py-3 !px-4"
-                    >
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => toggleTask(t.id)}
-                        className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors"
-                        style={{ borderColor: "var(--accent)", background: "var(--accent)" }}
-                      >
-                        <Check size={11} strokeWidth={3} style={{ color: "var(--on-accent)" }} />
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm" style={{ color: "var(--text-muted)", textDecoration: "line-through" }}>{t.title}</p>
-                        <p className="mt-0.5 flex items-center gap-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
-                          <Calendar size={10} />
-                          {t.dateKey === todayK ? "Today" : t.dateKey}
-                        </p>
-                      </div>
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => requestDelete(t)}
-                        className="icon-btn !h-7 !w-7 shrink-0"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <SortableSection
+            title="Active"
+            tasks={active}
+            todayK={todayK}
+            done={false}
+            onToggle={toggleTask}
+            onEdit={openEdit}
+            onDelete={deleteTask}
+            onReorder={reorderTasks}
+          />
+          <SortableSection
+            title="Completed"
+            tasks={done}
+            todayK={todayK}
+            done={true}
+            onToggle={toggleTask}
+            onEdit={openEdit}
+            onDelete={deleteTask}
+            onReorder={reorderTasks}
+          />
         </div>
       )}
 
       {/* Edit modal */}
       {editTaskId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={closeEdit}
-        >
-          <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+          <div className="card w-full max-w-md p-6">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>Edit Task</h2>
-              <button onClick={closeEdit} className="icon-btn !h-8 !w-8"><X size={18} /></button>
+              <button onClick={() => setEditTaskId(null)} className="icon-btn !h-8 !w-8"><X size={18} /></button>
             </div>
-            <input
-              className="input mb-1"
-              placeholder="Task name"
-              value={editTitle}
-              onChange={(e) => { setEditTitle(e.target.value); if (editError) setEditError(""); }}
-              style={editError ? { borderColor: "var(--danger, #c04545)" } : undefined}
-            />
-            {editError && <p className="mb-3 text-xs" style={{ color: "var(--danger, #c04545)" }}>{editError}</p>}
+            <input className="input mb-4" placeholder="Task name" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
             <p className="muted mb-1.5 text-xs font-semibold uppercase tracking-wide">DATE</p>
             <input className="input mb-6" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
             <button onClick={saveEdit} className="btn w-full">Save</button>
           </div>
-        </div>
-      )}
-
-      {/* Delete confirmation */}
-      {pendingDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.5)" }}
-          onClick={() => setPendingDelete(null)}
-        >
-          <div className="card w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-            <p className="mb-1 text-[15px] font-semibold" style={{ color: "var(--text)" }}>Delete this task?</p>
-            <p className="muted mb-4 text-sm">"{pendingDelete.title}" will be removed.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setPendingDelete(null)} className="btn-soft flex-1 text-sm">Cancel</button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 rounded-lg text-sm"
-                style={{ height: 36, border: "none", background: "var(--danger, #c04545)", color: "#fff", cursor: "pointer" }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Undo toast */}
-      {toast && (
-        <div
-          className="fixed bottom-5 left-1/2 z-[60] flex items-center gap-3 rounded-lg text-sm"
-          style={{ transform: "translateX(-50%)", background: "var(--text)", color: "var(--bg, #fff)", padding: "10px 16px" }}
-        >
-          {toast}
-          <button onClick={undoDelete} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600 }}>
-            Undo
-          </button>
         </div>
       )}
     </div>

@@ -1,11 +1,25 @@
-import { useMemo, useState, useRef } from "react";
-import { Trash2, X, GripVertical } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trash2, X } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { Card, PageTitle, EmptyState } from "../components/Card";
 import { Checkbox } from "../components/Checkbox";
 import { Celebration } from "../components/Celebration";
 import { todayKey } from "../lib/date";
 import type { Task } from "../types";
+
+const CARD_HEIGHT = 56;
+const ROW_GAP = 6;
+const ROW_HEIGHT = CARD_HEIGHT + ROW_GAP;
+const TOUCH_HOLD_MS = 260;
+const MOUSE_DRAG_THRESHOLD = 4;
+const TOUCH_CANCEL_THRESHOLD = 10;
+
+const noSelectStyle: React.CSSProperties = {
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  WebkitTouchCallout: "none",
+  WebkitTapHighlightColor: "transparent",
+};
 
 export default function Tasks() {
   const tasks = useStore((s) => s.tasks);
@@ -20,13 +34,14 @@ export default function Tasks() {
 
   const todayK = todayKey();
 
-  const filtered = useMemo(
-    () => [...tasks].sort((a, b) => a.order - b.order),
+  const active = useMemo(
+    () => tasks.filter((t) => !t.done).sort((a, b) => a.order - b.order),
     [tasks]
   );
-
-  const active = useMemo(() => filtered.filter((t) => !t.done), [filtered]);
-  const done = useMemo(() => filtered.filter((t) => t.done), [filtered]);
+  const done = useMemo(
+    () => tasks.filter((t) => t.done).sort((a, b) => a.order - b.order),
+    [tasks]
+  );
 
   const submit = () => {
     if (!draft.trim()) return;
@@ -34,83 +49,6 @@ export default function Tasks() {
     setDraft("");
   };
 
-  // ---- Drag reorder ----
-  const listRef = useRef<HTMLDivElement>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dragY, setDragY] = useState(0); // live translateY offset for the dragged card
-  const dragStartYRef = useRef(0);
-  const dragSectionRef = useRef<"active" | "done" | null>(null);
-  const lastSwapIdRef = useRef<string | null>(null);
-
-  const sectionOf = (id: string): "active" | "done" | null => {
-    if (active.some((t) => t.id === id)) return "active";
-    if (done.some((t) => t.id === id)) return "done";
-    return null;
-  };
-
-  const onHandlePointerDown = (id: string, e: React.PointerEvent) => {
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragStartYRef.current = e.clientY;
-    dragSectionRef.current = sectionOf(id);
-    lastSwapIdRef.current = id;
-    setDragId(id);
-    setDragY(0);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragId) return;
-    setDragY(e.clientY - dragStartYRef.current);
-
-    const el = listRef.current;
-    if (!el) return;
-    const section = dragSectionRef.current;
-    const candidates = [
-      ...el.querySelectorAll(`[data-task-id][data-section="${section}"]`),
-    ] as HTMLElement[];
-
-    for (const child of candidates) {
-      const id = child.dataset.taskId!;
-      if (id === dragId) continue;
-      const rect = child.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
-        // Only swap once per crossing to avoid jitter
-        if (lastSwapIdRef.current === id) break;
-        const draggedIsAbove = e.clientY < midpoint;
-        const sectionIds = candidates.map((c) => c.dataset.taskId!);
-        const fromIdx = sectionIds.indexOf(dragId);
-        const toIdx = sectionIds.indexOf(id);
-        if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
-          const newSection = [...sectionIds];
-          newSection.splice(fromIdx, 1);
-          const insertAt = draggedIsAbove
-            ? (fromIdx < toIdx ? toIdx - 1 : toIdx)
-            : (fromIdx < toIdx ? toIdx : toIdx + 1);
-          newSection.splice(insertAt, 0, dragId);
-          // Build full order: updated section first, then the other section's current order
-          const otherSection = section === "active" ? "done" : "active";
-          const otherIds = (
-            [...el.querySelectorAll(`[data-task-id][data-section="${otherSection}"]`)] as HTMLElement[]
-          ).map((c) => c.dataset.taskId!);
-          reorderTasks(section === "active" ? [...newSection, ...otherIds] : [...otherIds, ...newSection]);
-          lastSwapIdRef.current = id;
-          // Re-anchor the drag start so the card doesn't jump visually
-          dragStartYRef.current = e.clientY - dragY;
-        }
-        break;
-      }
-    }
-  };
-
-  const endDrag = () => {
-    setDragId(null);
-    setDragY(0);
-    dragSectionRef.current = null;
-    lastSwapIdRef.current = null;
-  };
-
-  // Edit
   const openEdit = (task: Task) => {
     setEditTaskId(task.id);
     setEditTitle(task.title);
@@ -118,9 +56,7 @@ export default function Tasks() {
   };
 
   const saveEdit = () => {
-    if (editTaskId) {
-      updateTask(editTaskId, { title: editTitle, dateKey: editDate });
-    }
+    if (editTaskId) updateTask(editTaskId, { title: editTitle, dateKey: editDate });
     setEditTaskId(null);
   };
 
@@ -129,7 +65,6 @@ export default function Tasks() {
       <Celebration trigger={celebrate} />
       <PageTitle title="Tasks" subtitle="A calm, scheduled list." />
 
-      {/* Add task */}
       <div className="mb-4 flex items-center gap-2">
         <input
           className="input"
@@ -143,74 +78,37 @@ export default function Tasks() {
         </button>
       </div>
 
-      {filtered.length === 0 ? (
+      {active.length === 0 && done.length === 0 ? (
         <EmptyState title="Nothing here yet" hint="Add your first task above." />
       ) : (
-        <div
-          ref={listRef}
-          className="flex flex-col gap-1.5"
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-        >
-          {active.map((t) => (
-            <div
-              key={t.id}
-              data-task-id={t.id}
-              data-section="active"
-              style={{
-                transform: dragId === t.id ? `translateY(${dragY}px) scale(1.02)` : undefined,
-                zIndex: dragId === t.id ? 10 : undefined,
-                position: "relative",
-                transition: dragId === t.id ? "none" : "transform 150ms ease",
-              }}
-            >
-              <TaskRow
-                task={t}
-                isDragging={dragId === t.id}
-                onComplete={() => setCelebrate((c) => c + 1)}
-                onTitleClick={() => openEdit(t)}
-                onHandlePointerDown={(e) => onHandlePointerDown(t.id, e)}
-              />
-            </div>
-          ))}
-
+        <div className="space-y-6">
+          <SortableSection
+            title="Active"
+            tasks={active}
+            done={false}
+            onToggle={(id) => {
+              const t = tasks.find((tk) => tk.id === id);
+              if (t && !t.done) setCelebrate((c) => c + 1);
+              useStore.getState().toggleTask(id);
+            }}
+            onEdit={openEdit}
+            onDelete={(id) => useStore.getState().deleteTask(id)}
+            onReorder={reorderTasks}
+          />
           {done.length > 0 && (
-            <div className="mt-4 lg:mt-0">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="muted text-xs font-semibold uppercase tracking-wide">
-                  COMPLETED · {done.length}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {done.map((t) => (
-                  <div
-                    key={t.id}
-                    data-task-id={t.id}
-                    data-section="done"
-                    style={{
-                      transform: dragId === t.id ? `translateY(${dragY}px) scale(1.02)` : undefined,
-                      zIndex: dragId === t.id ? 10 : undefined,
-                      position: "relative",
-                      transition: dragId === t.id ? "none" : "transform 150ms ease",
-                    }}
-                  >
-                    <TaskRow
-                      task={t}
-                      isDragging={dragId === t.id}
-                      onComplete={() => setCelebrate((c) => c + 1)}
-                      onTitleClick={() => openEdit(t)}
-                      onHandlePointerDown={(e) => onHandlePointerDown(t.id, e)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SortableSection
+              title="Completed"
+              tasks={done}
+              done={true}
+              onToggle={(id) => useStore.getState().toggleTask(id)}
+              onEdit={openEdit}
+              onDelete={(id) => useStore.getState().deleteTask(id)}
+              onReorder={reorderTasks}
+            />
           )}
         </div>
       )}
 
-      {/* Edit modal */}
       {editTaskId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -226,14 +124,12 @@ export default function Tasks() {
                 <X size={18} />
               </button>
             </div>
-
             <input
               className="input mb-4"
               placeholder="Task name"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
             />
-
             <p className="muted mb-1.5 text-xs font-semibold uppercase tracking-wide">DATE</p>
             <input
               className="input mb-6"
@@ -241,7 +137,6 @@ export default function Tasks() {
               value={editDate}
               onChange={(e) => setEditDate(e.target.value)}
             />
-
             <button onClick={saveEdit} className="btn w-full">
               Save
             </button>
@@ -252,68 +147,238 @@ export default function Tasks() {
   );
 }
 
-function TaskRow({
-  task,
-  isDragging,
-  onComplete,
-  onTitleClick,
-  onHandlePointerDown,
+function SortableSection({
+  title,
+  tasks,
+  done,
+  onToggle,
+  onEdit,
+  onDelete,
+  onReorder,
 }: {
-  task: Task;
-  isDragging: boolean;
-  onComplete: () => void;
-  onTitleClick: () => void;
-  onHandlePointerDown: (e: React.PointerEvent) => void;
+  title: string;
+  tasks: Task[];
+  done: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+  onReorder: (orderedIds: string[]) => void;
 }) {
-  const toggleTask = useStore((s) => s.toggleTask);
-  const deleteTask = useStore((s) => s.deleteTask);
+  const [order, setOrder] = useState<string[]>(tasks.map((t) => t.id));
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+
+  type DragState = {
+    pointerId: number;
+    startY: number;
+    startIndex: number;
+    baseOrder: string[];
+    pointerType: string;
+    pendingId?: string;
+    target?: HTMLElement;
+  };
+  const dragRef = useRef<DragState | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!dragId) setOrder(tasks.map((t) => t.id));
+  }, [tasks, dragId]);
+
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  const beginDrag = useCallback(
+    (id: string, pointerId: number, target: HTMLElement, startY: number, pointerType: string) => {
+      target.setPointerCapture(pointerId);
+      const startIndex = order.indexOf(id);
+      dragRef.current = { pointerId, startY, startIndex, baseOrder: order, pointerType };
+      setDragId(id);
+      setDragOffset(0);
+    },
+    [order]
+  );
+
+  const onPointerMove = useCallback(
+    (e: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+
+      if (dragId) {
+        e.preventDefault();
+        const delta = e.clientY - drag.startY;
+        setDragOffset(delta);
+        const shift = Math.round(delta / ROW_HEIGHT);
+        const targetIndex = Math.max(0, Math.min(drag.baseOrder.length - 1, drag.startIndex + shift));
+        const next = [...drag.baseOrder];
+        next.splice(drag.startIndex, 1);
+        next.splice(targetIndex, 0, dragId);
+        setOrder(next);
+        return;
+      }
+
+      if (drag.pointerType === "mouse" && drag.pendingId) {
+        const dist = Math.abs(e.clientY - drag.startY);
+        if (dist > MOUSE_DRAG_THRESHOLD) {
+          beginDrag(drag.pendingId, drag.pointerId, drag.target!, drag.startY, "mouse");
+        }
+      } else if (drag.pointerType !== "mouse" && drag.pendingId) {
+        const dist = Math.abs(e.clientY - drag.startY);
+        if (dist > TOUCH_CANCEL_THRESHOLD) {
+          clearHoldTimer();
+          dragRef.current = null;
+        }
+      }
+    },
+    [dragId, beginDrag]
+  );
+
+  const endDrag = useCallback(() => {
+    clearHoldTimer();
+    if (dragId) onReorder(order);
+    dragRef.current = null;
+    setDragId(null);
+    setDragOffset(0);
+  }, [dragId, order, onReorder]);
+
+  useEffect(() => {
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+    };
+  }, [onPointerMove, endDrag]);
+
+  const onCardPointerDown = (id: string) => (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    e.preventDefault();
+
+    const target = e.currentTarget as HTMLElement;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      startIndex: order.indexOf(id),
+      baseOrder: order,
+      pointerType: e.pointerType,
+      pendingId: id,
+      target,
+    };
+
+    if (e.pointerType === "mouse") return;
+
+    holdTimerRef.current = setTimeout(() => {
+      if (dragRef.current && dragRef.current.pendingId === id) {
+        beginDrag(id, e.pointerId, target, e.clientY, e.pointerType);
+      }
+    }, TOUCH_HOLD_MS);
+  };
+
+  if (tasks.length === 0) return null;
 
   return (
-    <div className="relative">
-      <Card
-        className="flex items-center gap-2 !py-2.5 !pr-3"
-        style={{
-          boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,0.18)" : undefined,
-        }}
-      >
-        <span
-          onPointerDown={onHandlePointerDown}
-          className="icon-btn !h-8 !w-6 shrink-0 cursor-grab touch-none active:cursor-grabbing"
-          style={{ color: "var(--text-muted)" }}
-          aria-label="Drag to reorder"
-        >
-          <GripVertical size={16} />
-        </span>
-
-        <Checkbox
-          checked={task.done}
-          onChange={() => {
-            if (!task.done) onComplete();
-            toggleTask(task.id);
-          }}
-        />
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <span
-              className="block truncate text-[15px] cursor-pointer"
+    <div>
+      <h2 className="muted mb-3 text-xs font-semibold uppercase tracking-wide">
+        {title} · {tasks.length}
+      </h2>
+      <div style={{ position: "relative", height: order.length * ROW_HEIGHT - ROW_GAP, ...noSelectStyle }}>
+        {order.map((id, index) => {
+          const task = byId.get(id);
+          if (!task) return null;
+          const isDragging = dragId === id;
+          return (
+            <div
+              key={id}
+              onPointerDown={onCardPointerDown(id)}
+              onContextMenu={(e) => e.preventDefault()}
+              onDragStart={(e) => e.preventDefault()}
+              draggable={false}
               style={{
-                color: task.done ? "var(--text-muted)" : "var(--text)",
-                textDecoration: task.done ? "line-through" : "none",
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: index * ROW_HEIGHT,
+                transform: isDragging ? `translateY(${dragOffset}px) scale(1.015)` : "none",
+                transition: isDragging ? "none" : "top 200ms cubic-bezier(0.2,0,0,1)",
+                zIndex: isDragging ? 10 : 1,
+                cursor: isDragging ? "grabbing" : "grab",
+                touchAction: "none",
+                ...noSelectStyle,
               }}
-              onClick={onTitleClick}
             >
-              {task.title}
-            </span>
-          </div>
-        </div>
-        <button
-          onClick={() => deleteTask(task.id)}
-          aria-label="Delete task"
-          className="icon-btn !h-8 !w-8 shrink-0"
-        >
-          <Trash2 size={15} />
-        </button>
-      </Card>
+              <TaskRow
+                task={task}
+                done={done}
+                dragging={isDragging}
+                onToggle={onToggle}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+function TaskRow({
+  task,
+  done,
+  dragging,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  task: Task;
+  done: boolean;
+  dragging: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <Card
+      className="flex items-center gap-2 !py-2.5 !pr-3"
+      style={{
+        opacity: done && !dragging ? 0.6 : 1,
+        boxShadow: dragging ? "0 8px 24px rgba(0,0,0,0.18)" : undefined,
+      }}
+    >
+      <Checkbox
+        checked={task.done}
+        onChange={() => onToggle(task.id)}
+      />
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onEdit(task)}>
+          <span
+            className="block truncate text-[15px]"
+            style={{
+              color: done ? "var(--text-muted)" : "var(--text)",
+              textDecoration: done ? "line-through" : "none",
+            }}
+          >
+            {task.title}
+          </span>
+        </div>
+      </div>
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => onDelete(task.id)}
+        aria-label="Delete task"
+        className="icon-btn !h-8 !w-8 shrink-0"
+      >
+        <Trash2 size={15} />
+      </button>
+    </Card>
   );
 }

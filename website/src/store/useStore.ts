@@ -359,12 +359,13 @@ export const useStore = create<AppState & Actions>()(
     }),
     {
       name: "calm-planner-v1",
-      version: 4,
+      version: 6,
       migrate: (persisted: any) => {
         if (!persisted || !persisted.tasks) return persisted;
-        const tasks = persisted.tasks.map((t: any) => ({
+        const tasks = persisted.tasks.map((t: any, i: number) => ({
           ...t,
           dateKey: t.dateKey || (t.createdAt ? format(t.createdAt, "yyyy-MM-dd") : todayKey()),
+          order: t.order ?? i,
         }));
         if (persisted.settings) {
           persisted.settings = {
